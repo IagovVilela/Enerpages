@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.next-3008/
 /out/
 
 # production
@@ -32,6 +33,14 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# uploads locais e relatórios de teste
+/public/uploads/*
+!/public/uploads/.gitkeep
+/test-results
+/playwright-report
+/blob-report
 
 # vercel
 .vercel

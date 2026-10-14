@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  name                String    @default("Admin")
+  totpSecretEncrypted String?
+  totpEnabled         Boolean   @default(false)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  sessions            Session[]
+}
+
+model Session {
+  id           String    @id @default(cuid())
+  sessionToken String    @unique
+  userId       String
+  user         AdminUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+  createdAt    DateTime  @default(now())
+}
+
+model Page {
+  id             String         @id @default(cuid())
+  slug           String         @unique
+  customDomain   String?        @unique
+  clientName     String
+  segment        String
+  status         PageStatus     @default(DRAFT)
+  draftData      Json
+  publishedData  Json?
+  publishedAt    DateTime?
+  seoTitle       String         @default("")
+  seoDescription String         @default("")
+  archetype      String?
+  currentVersion Int            @default(1)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  versions       PageVersion[]
+  leads          Lead[]
+  analytics      AnalyticsDaily[]
+}
+
+model PageVersion {
+  id        String        @id @default(cuid())
+  pageId    String
+  page      Page          @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  version   Int
+  data      Json
+  label     String?
+  source    VersionSource
+  createdAt DateTime      @default(now())
+
+  @@unique([pageId, version])
+  @@index([pageId, createdAt])
+}
+
+model Lead {
+  id         String    @id @default(cuid())
+  pageId     String
+  page       Page      @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  payload    Json
+  ipHash     String?
+  notifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([pageId, createdAt])
+  @@index([ipHash, createdAt])
+}
+
+model AnalyticsDaily {
+  id        String   @id @default(cuid())
+  pageId    String
+  page      Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  views     Int      @default(0)
+  ctaClicks Int      @default(0)
+
+  @@unique([pageId, day])
+}
+
+model AiCache {
+  id        String   @id @default(cuid())
+  cacheKey  String   @unique
+  provider  String
+  result    Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model RateBucket {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum VersionSource {
+  MANUAL
+  AUTOSAVE
+  AI
+  PUBLISH
+  RESTORE
+}
