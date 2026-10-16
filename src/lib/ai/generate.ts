@@ -91,7 +91,7 @@ function coerceStructure(raw: unknown) {
   };
 }
 
-const structureInputSchema = z.preprocess(coerceStructure, structureSchema);
+const structureInputSchema = z.preprocess(coerceStructure, structureSchema) as z.ZodType<z.infer<typeof structureSchema>>;
 
 
 const textSchema = z.object({
