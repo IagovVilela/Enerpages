@@ -4,11 +4,16 @@ import { prisma } from "@/lib/db";
 import { publicOrigin } from "@/lib/tenant";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const pages = await publishedPages();
-  return pages.map((page) => ({
-    url: page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug),
-    lastModified: page.updatedAt,
-  }));
+  try {
+    const pages = await publishedPages();
+    return pages.map((page) => ({
+      url: page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug),
+      lastModified: page.updatedAt,
+    }));
+  } catch {
+    // Build containers cannot reach Railway private Postgres; runtime still serves a live sitemap.
+    return [];
+  }
 }
 
 async function publishedPages() {
