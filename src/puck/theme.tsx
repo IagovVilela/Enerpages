@@ -1,8 +1,10 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { bgArtStyle } from "@/puck/bg-art";
 import { fontAssets } from "@/puck/fonts";
-import type { ImageField, RootProps, Theme } from "@/puck/schema";
+import { CanvasUpload } from "@/puck/media-upload";
+import { isVideoSrc, type ImageField, type RootProps, type Theme } from "@/puck/schema";
 import { cn } from "@/lib/cn";
 import { visibilityClass } from "@/puck/visibility";
 
@@ -30,8 +32,9 @@ export function themeStyle(theme: Theme): CSSProperties {
     "--space-section": spacing[theme.spacing],
     "--font-display": `var(${fonts.displayVar})`,
     "--font-body": `var(${fonts.bodyVar})`,
-    background: theme.colors.background,
+    backgroundColor: theme.colors.background,
     color: theme.colors.foreground,
+    ...bgArtStyle(theme),
   } as CSSProperties;
 }
 
@@ -117,18 +120,47 @@ function DotCursor() {
   );
 }
 
-export function Media({ image, className }: { image: ImageField; className?: string }) {
-  if (!image?.src || image.placeholder) {
-    return (
-      <div className={cn("media-frame media-placeholder grid min-h-48 place-items-center", className)}>
-        <span className="bg-[var(--color-background)] px-3 py-1 text-[0.68rem] uppercase tracking-[0.18em]">Substituir imagem</span>
-      </div>
-    );
-  }
-  return (
-    <div className={cn("media-frame overflow-hidden", className)}>
+export function Media({
+  image,
+  className,
+  blockId,
+  path,
+  zoom = 1,
+  posX = 50,
+  posY = 50,
+}: {
+  image: ImageField;
+  className?: string;
+  blockId?: string;
+  path?: string;
+  zoom?: number;
+  posX?: number;
+  posY?: number;
+}) {
+  const page = usePage();
+  const crop = {
+    objectPosition: `${posX}% ${posY}%`,
+    transform: zoom > 1 ? `scale(${zoom})` : undefined,
+    transformOrigin: `${posX}% ${posY}%`,
+  } as CSSProperties;
+  const frame = !image?.src || image.placeholder ? (
+    <div className="media-frame media-placeholder grid h-full min-h-48 place-items-center">
+      <span className="bg-[var(--color-background)] px-3 py-1 text-[0.68rem] uppercase tracking-[0.18em]">Enviar imagem ou vídeo</span>
+    </div>
+  ) : isVideoSrc(image.src) ? (
+    <div className="media-frame h-full overflow-hidden">
+        <video src={image.src} className="h-full w-full object-cover" style={crop} controls playsInline />
+    </div>
+  ) : (
+    <div className="media-frame h-full overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={image.src} alt={image.alt} className="h-full w-full object-cover" />
+      <img src={image.src} alt={image.alt} className="h-full w-full object-cover" style={crop} />
+    </div>
+  );
+  return (
+    <div className={cn("relative", className)}>
+      {frame}
+      {page.editing && blockId && path ? <CanvasUpload blockId={blockId} path={path} current={image} /> : null}
     </div>
   );
 }

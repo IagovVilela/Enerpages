@@ -93,6 +93,9 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
           colors,
           fonts: FONT_BY_PERSONALITY[personality],
           ...STYLE_BY_PERSONALITY[personality],
+          bgArt: "none",
+          bgArtColor: "",
+          bgArtStrength: 45,
         },
         seo: {
           title: `${name} · ${archetype.label}`,
@@ -169,12 +172,49 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
     case "Marquee":
       return { type, props: { ...base, items: [...copy.services, copy.name].map((label) => ({ label })) } };
     case "Video":
-      return { type, props: { ...base, title: "Vídeo", url: "", caption: "Cole um link do YouTube ou Vimeo, ou deixe em branco." } };
+      return { type, props: { ...base, title: "Vídeo", url: "", caption: "Envie um MP4 ou WEBM, ou cole um link do YouTube ou Vimeo.", file: img } };
     case "BeforeAfter":
       return { type, props: { ...base, title: "Antes e depois", before: img, after: img, beforeLabel: "Antes", afterLabel: "Depois" } };
     case "Booking":
       return { type, props: { ...base, title: "Agenda", subtitle: "O link abre a ferramenta de agendamento que você já usa.", href: "#contato", label: copy.cta } };
     case "WhatsApp":
       return { type, props: { ...base, label: "WhatsApp", phone: "", message: `Olá, vim pelo site de ${copy.name}.` } };
+    case "Text":
+      return { type, props: { ...base, text: copy.intro, align: "left", fontSize: 18 } };
+    case "Button":
+      return { type, props: { ...base, label: copy.cta, href: "#contato", align: "left" } };
+    case "Badge":
+      return { type, props: { ...base, text: copy.ethical ? "Institucional" : "Novidade", align: "left" } };
+    case "Divider":
+      return { type, props: { ...base } };
+    case "Spacer":
+      return { type, props: { ...base } };
+    case "Panel":
+      return { type, props: { ...base, title: copy.name, body: copy.diff } };
+    case "CardGrid":
+      return { type, props: { ...base, title: "Em grade", cards: copy.services.slice(0, 3).map((title) => ({ title, description: copy.diff, emoji: "" })) } };
+    case "Band":
+      return { type, props: { ...base, text: copy.cta, href: "#contato", label: copy.cta } };
+    case "Picture":
+      return { type, props: { ...base, image: img, zoom: 1, posX: 50, posY: 50, caption: "Substituir imagem" } };
+    case "Clip":
+      return { type, props: { ...base, file: img, zoom: 1, posX: 50, posY: 50, caption: "Envie uma imagem ou um vídeo." } };
+    default: {
+      const _exhaustive: never = type;
+      return _exhaustive;
+    }
   }
+}
+
+export function sampleBlock(type: BlockType): Block {
+  return makeBlock(type, chrome(type, 1, "fade", 0), {
+    name: "Seu nome",
+    intro: "Texto para substituir.",
+    services: ["Item um", "Item dois", "Item três"],
+    cta: "Saiba mais",
+    audience: "",
+    diff: "Descrição curta.",
+    ethical: false,
+    segment: "local",
+  });
 }

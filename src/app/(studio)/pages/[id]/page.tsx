@@ -51,6 +51,9 @@ async function Editor({ params }: { params: Promise<{ id: string }> }) {
         pageId={current.id}
         clientName={current.clientName}
         slug={current.slug}
+        segment={current.segment}
+        status={current.status}
+        previewUrl={`/preview/${token}`}
         initial={parsed.data}
         versions={current.versions.map((version) => ({
           id: version.id,

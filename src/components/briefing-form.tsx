@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPage } from "@/actions/studio";
+import { ProposalPreviewModal } from "@/components/proposal-preview";
+import { normalizeSlug } from "@/lib/slug";
 import { SEGMENTS, type PageDocument } from "@/puck/schema";
 
 type Proposal = { label: string; direction: string; source: "ai" | "fallback"; data: PageDocument };
@@ -12,12 +14,21 @@ export function BriefingForm() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [warning, setWarning] = useState("");
   const [pending, setPending] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [preview, setPreview] = useState<Proposal | null>(null);
 
   async function onSubmit(formData: FormData) {
     setPending(true);
     setError("");
     const briefing = Object.fromEntries(formData.entries());
+    if (!String(briefing.slug || "").trim()) {
+      setPending(false);
+      setError("Informe um subdomínio antes de gerar (ex.: pizzaria-bom-peregrino).");
+      return;
+    }
     const response = await fetch("/api/ai/generate", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -33,13 +44,73 @@ export function BriefingForm() {
     setWarning(payload.warning || "");
   }
 
+  function requireMeta() {
+    const form = document.querySelector("form");
+    const data = new FormData(form || undefined);
+    const nextSlug = slug || String(data.get("slug") || "");
+    const nextName = clientName || String(data.get("clientName") || "Cliente");
+    const segment = String(data.get("segment") || "local");
+    if (!nextSlug.trim()) {
+      setError("Informe um subdomínio no formulário acima.");
+      return null;
+    }
+    if (!nextName.trim()) {
+      setError("Informe o nome do cliente.");
+      return null;
+    }
+    return { nextSlug, nextName, segment };
+  }
+
+  async function openInEditor(proposal: Proposal) {
+    const meta = requireMeta();
+    if (!meta) return;
+    setOpening(true);
+    setError("");
+    const result = await createPage({
+      clientName: meta.nextName,
+      segment: meta.segment,
+      slug: meta.nextSlug,
+      data: proposal.data,
+    });
+    if (!result.ok) {
+      setOpening(false);
+      setError(result.error);
+      return;
+    }
+    router.push(`/pages/${result.id}`);
+  }
+
   return (
     <div className="grid gap-8">
+      <p className="text-sm text-neutral-600">
+        Gere propostas, <strong>visualize</strong> como ficou e depois <strong>edite no Puck</strong> para ajustar qualquer ponto.
+        Sem chave de IA, as propostas locais ainda funcionam.
+      </p>
       <form action={onSubmit} className="grid gap-3 md:grid-cols-2">
-        <input className="border bg-white px-3 py-2" name="clientName" placeholder="Nome" required />
-        <input className="border bg-white px-3 py-2" name="slug" placeholder="subdominio" required />
+        <input
+          className="border bg-white px-3 py-2"
+          name="clientName"
+          placeholder="Nome"
+          required
+          value={clientName}
+          onChange={(event) => {
+            const value = event.target.value;
+            setClientName(value);
+            if (!slug || slug === normalizeSlug(clientName)) setSlug(normalizeSlug(value));
+          }}
+        />
+        <input
+          className="border bg-white px-3 py-2"
+          name="slug"
+          placeholder="subdominio (obrigatório)"
+          required
+          value={slug}
+          onChange={(event) => setSlug(normalizeSlug(event.target.value))}
+        />
         <select className="border bg-white px-3 py-2" name="segment" defaultValue="local">
-          {SEGMENTS.map((item) => <option key={item}>{item}</option>)}
+          {SEGMENTS.map((item) => (
+            <option key={item}>{item}</option>
+          ))}
         </select>
         <select className="border bg-white px-3 py-2" name="goal" defaultValue="captar">
           <option value="vender">Vender</option>
@@ -64,34 +135,36 @@ export function BriefingForm() {
             <p className="text-xs uppercase tracking-[0.16em]">{proposal.source === "ai" ? "IA" : "Arquétipo"}</p>
             <h2 className="text-2xl">{proposal.label}</h2>
             <p className="text-sm">{proposal.direction}</p>
-            <p className="text-sm">{proposal.data.root.props.theme.personality} · {proposal.data.content.length} blocos</p>
+            <p className="text-sm">
+              {proposal.data.root.props.theme.personality} · {proposal.data.content.length} blocos
+            </p>
             <div className="flex h-16" style={{ background: proposal.data.root.props.theme.colors.background }}>
               <span className="m-3 h-3 w-10" style={{ background: proposal.data.root.props.theme.colors.primary }} />
             </div>
+            <button className="border px-3 py-2 text-sm" type="button" onClick={() => setPreview(proposal)}>
+              Visualizar
+            </button>
             <button
-              className="border px-3 py-2 text-sm"
+              className="bg-[var(--studio-ink)] px-3 py-2 text-sm text-[var(--studio-bg)] disabled:opacity-50"
               type="button"
-              onClick={async () => {
-                const form = document.querySelector("form");
-                const data = new FormData(form || undefined);
-                const result = await createPage({
-                  clientName: String(data.get("clientName") || "Cliente"),
-                  segment: String(data.get("segment") || "local"),
-                  slug: String(data.get("slug") || ""),
-                  data: proposal.data,
-                });
-                if (!result.ok) {
-                  setError(result.error);
-                  return;
-                }
-                router.push(`/pages/${result.id}`);
-              }}
+              disabled={opening}
+              onClick={() => openInEditor(proposal)}
             >
-              Usar esta proposta
+              {opening ? "Abrindo…" : "Usar e editar no Puck"}
             </button>
           </article>
         ))}
       </div>
+
+      <ProposalPreviewModal
+        open={Boolean(preview)}
+        proposal={preview}
+        busy={opening}
+        onClose={() => setPreview(null)}
+        onEdit={() => {
+          if (preview) void openInEditor(preview);
+        }}
+      />
     </div>
   );
 }

@@ -6,10 +6,11 @@ import { Media, usePage } from "@/puck/theme";
 import type { PropsOf } from "@/puck/schema";
 import { cn } from "@/lib/cn";
 
-export function GalleryBoard({ variant, images }: { variant: PropsOf<"Gallery">["variant"]; images: PropsOf<"Gallery">["images"] }) {
+export function GalleryBoard({ variant, images, blockId = "" }: { variant: PropsOf<"Gallery">["variant"]; images: PropsOf<"Gallery">["images"]; blockId?: string }) {
   const [tag, setTag] = useState("Tudo");
   const tags = useMemo(() => ["Tudo", ...new Set(images.map((image) => image.tag).filter(Boolean))], [images]);
-  const visible = tag === "Tudo" ? images : images.filter((image) => image.tag === tag);
+  const indexed = images.map((image, index) => ({ image, index }));
+  const visible = tag === "Tudo" ? indexed : indexed.filter((item) => item.image.tag === tag);
   return (
     <>
       {variant === "grid" ? null : (
@@ -23,9 +24,9 @@ export function GalleryBoard({ variant, images }: { variant: PropsOf<"Gallery">[
       )}
       <LayoutGroup>
         <div className={cn(variant === "filmstrip" ? "flex gap-4 overflow-x-auto" : variant === "feature" ? "grid gap-4 md:grid-cols-2" : "columns-2 gap-4 md:columns-3")}>
-          {visible.map((image) => (
+          {visible.map(({ image, index }) => (
             <motion.figure layout key={image.caption + image.tag} className={cn("mb-4", variant === "filmstrip" && "min-w-64")}>
-              <Media image={image.image} className={cn("min-h-40", variant === "feature" && "first:min-h-80")} />
+              <Media image={image.image} blockId={blockId} path={`images[${index}].image`} className={cn("min-h-40", variant === "feature" && "first:min-h-80")} />
               <figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{image.caption}</figcaption>
             </motion.figure>
           ))}
@@ -38,7 +39,7 @@ export function GalleryBoard({ variant, images }: { variant: PropsOf<"Gallery">[
 export function FaqList({ variant, items }: { variant: PropsOf<"Faq">["variant"]; items: PropsOf<"Faq">["items"] }) {
   const [open, setOpen] = useState(0);
   const rows = items.map((item, index) => (
-    <div key={item.question} className="border-b border-[var(--color-border)]">
+    <div key={`faq-${index}`} className="border-b border-[var(--color-border)]">
       <button type="button" className="flex w-full items-center justify-between py-4 text-left text-lg" onClick={() => setOpen(index)}>
         {item.question}
         <span>{open === index ? "–" : "+"}</span>
@@ -49,8 +50,8 @@ export function FaqList({ variant, items }: { variant: PropsOf<"Faq">["variant"]
   if (variant === "two-column") {
     return (
       <div className="grid gap-8 md:grid-cols-2">
-        {items.map((item) => (
-          <article key={item.question}>
+        {items.map((item, index) => (
+          <article key={`faq-${index}`}>
             <h3 className="text-xl">{item.question}</h3>
             <p className="mt-2 text-sm leading-6">{item.answer}</p>
           </article>
@@ -104,19 +105,19 @@ export function ContactForm({ submitLabel }: { submitLabel: string }) {
   );
 }
 
-export function BeforeAfterBoard(props: Pick<PropsOf<"BeforeAfter">, "variant" | "before" | "after" | "beforeLabel" | "afterLabel">) {
+export function BeforeAfterBoard(props: Pick<PropsOf<"BeforeAfter">, "variant" | "before" | "after" | "beforeLabel" | "afterLabel"> & { blockId?: string }) {
   const [value, setValue] = useState(50);
   const pair = (
     <div className="grid gap-4 md:grid-cols-2">
-      <figure><Media image={props.before} className="min-h-72" /><figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{props.beforeLabel}</figcaption></figure>
-      <figure><Media image={props.after} className="min-h-72" /><figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{props.afterLabel}</figcaption></figure>
+      <figure><Media image={props.before} blockId={props.blockId} path="before" className="min-h-72" /><figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{props.beforeLabel}</figcaption></figure>
+      <figure><Media image={props.after} blockId={props.blockId} path="after" className="min-h-72" /><figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{props.afterLabel}</figcaption></figure>
     </div>
   );
   const slider = (
     <div className="relative min-h-80 overflow-hidden">
-      <Media image={props.after} className="absolute inset-0 min-h-80" />
+      <Media image={props.after} blockId={props.blockId} path="after" className="absolute inset-0 min-h-80" />
       <div className="absolute inset-y-0 left-0 overflow-hidden" style={{ width: `${value}%` }}>
-        <Media image={props.before} className="min-h-80 w-screen max-w-none" />
+        <Media image={props.before} blockId={props.blockId} path="before" className="min-h-80 w-screen max-w-none" />
       </div>
       <input className="absolute inset-x-6 bottom-4" type="range" min={0} max={100} value={value} onChange={(event) => setValue(Number(event.target.value))} aria-label="Comparar antes e depois" />
     </div>

@@ -126,3 +126,14 @@ body:has(.landing) {
     width: auto;
   }
 }
+
+/* Chrome do studio (Puck) — paridade visual com o editor do Ze */
+.studio-puck {
+  --puck-color-azure-04: var(--studio-ink);
+  background: var(--studio-bg);
+}
+
+.studio-puck [class*="Puck-header"],
+.studio-puck header {
+  border-color: var(--studio-line) !important;
+}

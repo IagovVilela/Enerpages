@@ -1,5 +1,6 @@
-import { generateDeterministic } from "@/lib/ai/fallback";
-import { SEGMENTS, type BlockType, type PropsOf } from "@/puck/schema";
+import { generateDeterministic, sampleBlock } from "@/lib/ai/fallback";
+import { buildPageTemplate } from "@/puck/page-templates";
+import { BLOCK_TYPES, SEGMENTS, type BlockType, type PropsOf } from "@/puck/schema";
 
 const blank = {
   clientName: "Nova página",
@@ -21,9 +22,12 @@ export function defaultPropsMap() {
       if (!map.has(block.type)) map.set(block.type, block.props);
     }
   }
+  for (const type of BLOCK_TYPES) {
+    if (!map.has(type)) map.set(type, sampleBlock(type).props);
+  }
   return map;
 }
 
 export function blankDocument(clientName: string, segment: (typeof SEGMENTS)[number] = "local") {
-  return generateDeterministic({ ...blank, clientName, segment }, 0);
+  return buildPageTemplate("blank", clientName, segment);
 }

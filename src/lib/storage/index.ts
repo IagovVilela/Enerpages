@@ -2,11 +2,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4"]);
+const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm"]);
 
 export function assertUpload(file: { type: string; size: number }) {
-  if (!ALLOWED.has(file.type)) throw new Error("Envie JPG, PNG, WEBP, GIF ou MP4.");
-  const limit = file.type === "video/mp4" ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
+  if (!ALLOWED.has(file.type)) throw new Error("Envie JPG, PNG, WEBP, GIF, MP4 ou WEBM.");
+  const limit = file.type.startsWith("video/") ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
   if (file.size > limit) throw new Error("Arquivo grande demais.");
 }
 

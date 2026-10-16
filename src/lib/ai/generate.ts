@@ -23,6 +23,77 @@ const structureSchema = z.object({
   blocks: z.array(z.object({ type: z.enum(BLOCK_TYPES as [BlockType, ...BlockType[]]), variant: z.string() })).min(4).max(14),
 });
 
+const PERSONALITY_ALIASES: Record<string, (typeof PERSONALITIES)[number]> = {
+  premium: "luxury",
+  luxo: "luxury",
+  sofisticada: "luxury",
+  sofisticado: "luxury",
+  ousada: "bold",
+  ousado: "bold",
+  contraste: "bold",
+  acolhedora: "warm",
+  acolhedor: "warm",
+  orgânica: "organic",
+  organica: "organic",
+  editorial: "editorial",
+  minimal: "minimal",
+  minimalista: "minimal",
+  brutalist: "brutalist",
+  brutalista: "brutalist",
+  luxury: "luxury",
+  bold: "bold",
+  warm: "warm",
+  organic: "organic",
+};
+
+function resolveBlockType(raw: unknown): BlockType | null {
+  if (typeof raw !== "string") return null;
+  const key = raw.trim().toLowerCase();
+  return BLOCK_TYPES.find((type) => type.toLowerCase() === key) ?? null;
+}
+
+function resolvePersonality(raw: unknown): (typeof PERSONALITIES)[number] {
+  if (typeof raw !== "string") return "editorial";
+  const key = raw.trim().toLowerCase();
+  if ((PERSONALITIES as readonly string[]).includes(key)) return key as (typeof PERSONALITIES)[number];
+  return PERSONALITY_ALIASES[key] ?? "editorial";
+}
+
+function resolveVariant(type: BlockType, raw: unknown) {
+  const variants = VARIANTS[type] as readonly string[];
+  if (typeof raw === "string" && variants.includes(raw)) return raw;
+  if (typeof raw === "string") {
+    const match = variants.find((item) => item.toLowerCase() === raw.trim().toLowerCase());
+    if (match) return match;
+  }
+  return variants[0];
+}
+
+function coerceStructure(raw: unknown) {
+  if (!raw || typeof raw !== "object") return raw;
+  const input = raw as Record<string, unknown>;
+  const blocks = Array.isArray(input.blocks)
+    ? input.blocks
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const row = item as Record<string, unknown>;
+          const type = resolveBlockType(row.type);
+          if (!type) return null;
+          return { type, variant: resolveVariant(type, row.variant) };
+        })
+        .filter((item): item is { type: BlockType; variant: string } => Boolean(item))
+    : [];
+  const paletteRaw = Number(input.paletteIndex);
+  return {
+    personality: resolvePersonality(input.personality),
+    paletteIndex: Number.isFinite(paletteRaw) ? Math.max(0, Math.min(8, Math.round(paletteRaw))) : 0,
+    blocks,
+  };
+}
+
+const structureInputSchema = z.preprocess(coerceStructure, structureSchema);
+
+
 const textSchema = z.object({
   seoTitle: z.string(),
   seoDescription: z.string(),
@@ -38,15 +109,11 @@ const textSchema = z.object({
   ),
 });
 
-const motionSchema = z.object({
-  presets: z.array(z.enum(PRESETS)),
-});
-
 const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 1 })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 2 })).digest("hex");
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -158,11 +225,15 @@ export type Proposal = {
 export async function generateProposals(briefing: Briefing) {
   const proposals: Proposal[] = [];
   let warning: string | undefined;
+  let quotaExhausted = false;
   const started = Date.now();
-
+  const budgetMs = 90_000;
   for (let direction = 0; direction < 3; direction += 1) {
     const fallback = generateDeterministic(briefing, direction);
-    if (warning || Date.now() - started > 45000) {
+    if (quotaExhausted || Date.now() - started > budgetMs) {
+      if (!warning && Date.now() - started > budgetMs) {
+        warning = "A geração por IA passou do tempo limite. As propostas restantes usam o gerador local.";
+      }
       proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "fallback", data: fallback });
       continue;
     }
@@ -170,35 +241,46 @@ export async function generateProposals(briefing: Briefing) {
       const base = fallback;
       const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
         generateJSON(
-          `Briefing: ${JSON.stringify(briefing)}. Direção criativa obrigatória: ${DIRECTIONS[direction]}. Escolha personalidade, índice de paleta e ordem de blocos dentre: ${BLOCK_TYPES.join(", ")}. Varie a estrutura. Não repita sempre hero, serviços e depoimentos.`,
-          structureSchema,
+          [
+            `Briefing: ${JSON.stringify(briefing)}.`,
+            `Direção criativa obrigatória: ${DIRECTIONS[direction]}.`,
+            `personality: um de [${PERSONALITIES.join(", ")}].`,
+            "paletteIndex: inteiro 0-8.",
+            `blocks: 5 a 9 itens; type exatamente um de [${BLOCK_TYPES.join(", ")}] (Cta, não CTA).`,
+            "variant: string curta compatível com o tipo (ex.: Hero split|editorial|immersive).",
+            "Inclua Navbar e Footer. Varie a ordem. Não invente types.",
+          ].join(" "),
+          structureInputSchema,
           SYSTEM,
         ),
       );
       let document = applyStructure(base, structure.data, briefing);
       const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
         generateJSON(
-          `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados.`,
+          `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
           textSchema,
           SYSTEM,
         ),
       );
       document = applyTexts(document, texts.data);
-      const motion = await cached(cacheKey("motion", briefing, direction), motionSchema, () =>
-        generateJSON(
-          `Sugira ${document.content.length} presets de animação, um por bloco, usando apenas: ${PRESETS.join(", ")}. Personalidade: ${document.root.props.theme.personality}. O primeiro bloco (hero) deve ser none.`,
-          motionSchema,
-          SYSTEM,
-        ),
+      const motionPresets = document.content.map((_, index) =>
+        index === 0 ? "none" : (["fade", "slide-up", "stagger", "blur-in", "scale"] as const)[(index - 1) % 5],
       );
-      document = applyMotion(document, motion.data.presets);
+      document = applyMotion(document, motionPresets);
       document = enforceCompliance(pageDataSchema.parse(document), briefing.segment);
       proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "ai", data: document });
     } catch (error) {
-      if (isQuotaError(error) || (error instanceof Error && /ausente|API key|401/.test(error.message))) {
-        warning = "A cota gratuita de IA acabou ou a chave não está configurada. As propostas seguintes saem do gerador local de arquétipos.";
-      } else {
-        warning = "A IA não devolveu um JSON válido. Esta proposta foi montada pelo gerador local.";
+      const message = error instanceof Error ? error.message : String(error);
+      if (isQuotaError(error)) {
+        quotaExhausted = true;
+        warning = proposals.some((item) => item.source === "ai")
+          ? "Limite da cota gratuita atingido; as propostas restantes usam o gerador local."
+          : "A cota gratuita de IA acabou. As propostas saem do gerador local de arquétipos.";
+      } else if (/Nenhuma chave de IA configurada|invalid_api_key/i.test(message)) {
+        quotaExhausted = true;
+        warning = "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.";
+      } else if (!warning) {
+        warning = "A IA falhou em pelo menos uma proposta; essas saíram do gerador local.";
       }
       proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "fallback", data: fallback });
     }

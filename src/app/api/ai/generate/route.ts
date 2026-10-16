@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { generateProposals } from "@/lib/ai/generate";
 import { briefingSchema } from "@/puck/schema";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST(request: Request) {
   const session = await auth();

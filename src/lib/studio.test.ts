@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isValidSlug, normalizeSlug, slugError } from "@/lib/slug";
 import { resolveHost } from "@/lib/tenant";
 import { generateDeterministic } from "@/lib/ai/fallback";
+import { buildPageTemplate, PAGE_TEMPLATE_IDS } from "@/puck/page-templates";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { pageDataSchema, type PageDocument } from "@/puck/schema";
 import { hashPassword, verifyPassword } from "@/lib/password";
@@ -60,6 +61,48 @@ describe("documento", () => {
     const clean = enforceCompliance(poisoned, "advocacia");
     const cleanHero = clean.content.find((block) => block.type === "Hero");
     expect(cleanHero?.type === "Hero" ? cleanHero.props.subtitle : "").not.toMatch(/garantid/i);
+  });
+});
+
+describe("modelos de página", () => {
+  it("monta documentos válidos para todos os templates", () => {
+    for (const id of PAGE_TEMPLATE_IDS) {
+      const doc = buildPageTemplate(id, "Cliente Teste", "local");
+      expect(pageDataSchema.safeParse(doc).success).toBe(true);
+      expect(doc.content.length).toBeGreaterThan(0);
+    }
+    const blank = buildPageTemplate("blank", "Cliente Teste", "local");
+    expect(blank.content.map((block) => block.type)).toEqual(["Navbar", "Hero", "Footer"]);
+  });
+});
+
+describe("biblioteca de seções", () => {
+  it("cobre todos os blocos e gera seções/prontos", async () => {
+    const {
+      insertBlocks,
+      makeFreshBlock,
+      makeSectionBlocks,
+      SECTION_PRESETS,
+      LIBRARY_ITEM_GROUPS,
+      READY_PRESETS,
+    } = await import("@/puck/section-presets");
+    const { BLOCK_TYPES } = await import("@/puck/schema");
+    const libraryTypes = new Set(LIBRARY_ITEM_GROUPS.flatMap((group) => group.items.map((item) => item.type)));
+    for (const type of BLOCK_TYPES) {
+      expect(libraryTypes.has(type)).toBe(true);
+    }
+    expect(READY_PRESETS.flatMap((group) => group.items).length).toBeGreaterThan(30);
+    expect(SECTION_PRESETS.length).toBeGreaterThanOrEqual(8);
+    const hero = makeFreshBlock("Hero", "cinematic");
+    expect(hero.type).toBe("Hero");
+    const section = makeSectionBlocks(SECTION_PRESETS.find((item) => item.id === "hero-diffs")!);
+    expect(section.length).toBe(2);
+    const withFooter = [
+      { type: "Navbar", props: { id: "nav-1" } },
+      { type: "Footer", props: { id: "foot-1" } },
+    ] as never;
+    const next = insertBlocks(withFooter, section);
+    expect(next.at(-1)?.type).toBe("Footer");
   });
 });
 

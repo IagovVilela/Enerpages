@@ -13,6 +13,17 @@ export function isQuotaError(error: unknown) {
   return error instanceof AiError && (error.status === 429 || error.status === 402 || error.status === 403);
 }
 
+function isRetryableError(error: unknown) {
+  return error instanceof AiError && (error.status === 429 || error.status === 402 || error.status === 503);
+}
+
+function retryDelayMs(error: unknown, fallback: number) {
+  if (!(error instanceof Error)) return fallback;
+  const match = error.message.match(/try again in ([\d.]+)\s*s/i);
+  if (!match) return fallback;
+  return Math.min(45_000, Math.ceil(Number(match[1]) * 1000) + 750);
+}
+
 export interface AIProvider {
   name: string;
   generateJSON<T>(prompt: string, schema: z.ZodType<T>, system?: string): Promise<T>;
@@ -54,7 +65,7 @@ function gemini(): AIProvider {
     async generateJSON(prompt, schema, system) {
       const key = process.env.GEMINI_API_KEY;
       if (!key) throw new AiError("GEMINI_API_KEY ausente", 401);
-      const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+      const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
       return completeJson(async (text) => {
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
@@ -71,7 +82,12 @@ function gemini(): AIProvider {
         const data = (await response.json()) as {
           candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
         };
-        return data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("\n") || "";
+        return (
+          data.candidates?.[0]?.content?.parts
+            ?.map((part) => part.text || "")
+            .filter(Boolean)
+            .join("\n") || ""
+        );
       }, prompt, schema, system);
     },
   };
@@ -91,8 +107,9 @@ function groq(): AIProvider {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile",
+            model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
             temperature: 0.7,
+            max_tokens: 700,
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: system || "Responda apenas JSON." },
@@ -168,6 +185,26 @@ function ollama(): AIProvider {
 
 const factories = { gemini, groq, openrouter, ollama };
 
+type ProviderName = keyof typeof factories;
+
+export function isProviderConfigured(name: ProviderName) {
+  switch (name) {
+    case "gemini":
+      return Boolean(process.env.GEMINI_API_KEY?.trim());
+    case "groq":
+      return Boolean(process.env.GROQ_API_KEY?.trim());
+    case "openrouter":
+      return Boolean(process.env.OPENROUTER_API_KEY?.trim());
+    case "ollama":
+      return Boolean(process.env.OLLAMA_BASE_URL?.trim());
+    default: {
+      const _exhaustive: never = name;
+      void _exhaustive;
+      return false;
+    }
+  }
+}
+
 export function providerOrder() {
   const primary = process.env.AI_PROVIDER || "gemini";
   const fallback = (process.env.AI_FALLBACK || "groq,openrouter")
@@ -176,7 +213,7 @@ export function providerOrder() {
     .filter(Boolean);
   const names = [primary, ...fallback.filter((name) => name !== primary)];
   if (process.env.OLLAMA_BASE_URL && !names.includes("ollama")) names.push("ollama");
-  return names.filter((name): name is keyof typeof factories => name in factories);
+  return names.filter((name): name is ProviderName => name in factories && isProviderConfigured(name as ProviderName));
 }
 
 async function sleep(ms: number) {
@@ -185,19 +222,22 @@ async function sleep(ms: number) {
 
 export async function generateJSON<T>(prompt: string, schema: z.ZodType<T>, system?: string): Promise<{ data: T; provider: string }> {
   const names = providerOrder();
+  if (names.length === 0) {
+    throw new AiError("Nenhuma chave de IA configurada (GEMINI_API_KEY / GROQ_API_KEY).", 401);
+  }
   let lastError: unknown;
   for (const name of names) {
     const provider = factories[name]();
-    let delay = 600;
+    let delay = 2000;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const data = await provider.generateJSON(prompt, schema, system);
         return { data, provider: name };
       } catch (error) {
         lastError = error;
-        if (!isQuotaError(error)) break;
+        if (!isRetryableError(error)) break;
         if (attempt < 2) {
-          await sleep(delay);
+          await sleep(retryDelayMs(error, delay));
           delay *= 2;
         }
       }

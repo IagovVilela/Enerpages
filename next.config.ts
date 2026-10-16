@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   allowedDevOrigins: ["*.localhost", "localhost"],
   experimental: {
+    proxyClientMaxBodySize: "25mb",
     serverActions: {
       bodySizeLimit: "4mb",
       allowedOrigins: [

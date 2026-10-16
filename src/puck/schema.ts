@@ -48,7 +48,7 @@ export const PRESETS = [
 
 export const VARIANTS = {
   Navbar: ["bar", "centered", "split", "minimal"],
-  Hero: ["split", "editorial", "immersive", "asymmetric"],
+  Hero: ["split", "editorial", "immersive", "asymmetric", "cinematic", "light", "brand"],
   About: ["columns", "overlap", "manifesto", "sidebar"],
   Services: ["grid", "list", "bento", "index"],
   Catalog: ["shelf", "lookbook", "rows", "mosaic"],
@@ -69,7 +69,35 @@ export const VARIANTS = {
   BeforeAfter: ["slider", "side", "stacked", "caption"],
   Booking: ["card", "banner", "split", "minimal"],
   WhatsApp: ["floating", "pill", "corner", "bar"],
+  Text: ["display", "title", "lead", "body", "caption", "eyebrow"],
+  Button: ["solid", "outline", "pill", "text", "ghost", "soft", "square", "inverted"],
+  Badge: ["pill", "square", "outline", "tag", "soft", "alert", "brand"],
+  Divider: ["line", "thick", "dotted", "fade"],
+  Spacer: ["sm", "md", "lg", "xl"],
+  Panel: ["card", "quote", "note", "invert", "glass", "accent", "flat"],
+  CardGrid: ["two", "three", "four", "list"],
+  Band: ["solid", "outline", "accent", "bleed", "rounded", "surface"],
+  Picture: ["frame", "bleed", "portrait", "wide"],
+  Clip: ["film", "square", "wide", "caption"],
 } as const;
+
+export const BG_ARTS = [
+  "none",
+  "grid",
+  "dots",
+  "diagonal",
+  "horizon",
+  "vertical",
+  "glow",
+  "noise",
+  "checker",
+  "blueprint",
+  "cross",
+  "rings",
+  "waves",
+  "spark",
+  "mesh",
+] as const;
 
 export const BLOCK_TYPES = Object.keys(VARIANTS) as Array<keyof typeof VARIANTS>;
 
@@ -92,6 +120,10 @@ export const imageSchema = z.object({
   alt: z.string(),
   placeholder: z.boolean(),
 });
+
+export function isVideoSrc(src: string) {
+  return /\.(mp4|webm)(\?|$)/i.test(src);
+}
 
 export const linkSchema = z.object({
   label: z.string(),
@@ -118,6 +150,9 @@ export const themeSchema = z.object({
   image: z.enum(["sharp", "rounded", "framed", "bleed"]),
   spacing: z.enum(["compact", "comfortable", "airy"]),
   cursor: z.enum(["default", "dot"]),
+  bgArt: z.enum(BG_ARTS).default("none"),
+  bgArtColor: z.string().default(""),
+  bgArtStrength: z.coerce.number().min(5).max(100).default(45),
 });
 
 const chrome = {
@@ -253,6 +288,7 @@ export const blockSchema = z.discriminatedUnion("type", [
     title: z.string(),
     url: z.string(),
     caption: z.string(),
+    file: imageSchema.default({ src: "", alt: "", placeholder: true }),
   }),
   block("BeforeAfter", VARIANTS.BeforeAfter, {
     title: z.string(),
@@ -271,6 +307,49 @@ export const blockSchema = z.discriminatedUnion("type", [
     label: z.string(),
     phone: z.string(),
     message: z.string(),
+  }),
+  block("Text", VARIANTS.Text, {
+    text: z.string(),
+    align: z.enum(["left", "center", "right"]),
+    fontSize: z.coerce.number().min(12).max(120),
+  }),
+  block("Button", VARIANTS.Button, {
+    label: z.string(),
+    href: z.string(),
+    align: z.enum(["left", "center", "right"]),
+  }),
+  block("Badge", VARIANTS.Badge, {
+    text: z.string(),
+    align: z.enum(["left", "center", "right"]),
+  }),
+  block("Divider", VARIANTS.Divider, {}),
+  block("Spacer", VARIANTS.Spacer, {}),
+  block("Panel", VARIANTS.Panel, {
+    title: z.string(),
+    body: z.string(),
+  }),
+  block("CardGrid", VARIANTS.CardGrid, {
+    title: z.string(),
+    cards: z.array(z.object({ title: z.string(), description: z.string(), emoji: z.string() })),
+  }),
+  block("Band", VARIANTS.Band, {
+    text: z.string(),
+    href: z.string(),
+    label: z.string(),
+  }),
+  block("Picture", VARIANTS.Picture, {
+    image: imageSchema,
+    zoom: z.coerce.number().min(1).max(3),
+    posX: z.coerce.number().min(0).max(100),
+    posY: z.coerce.number().min(0).max(100),
+    caption: z.string(),
+  }),
+  block("Clip", VARIANTS.Clip, {
+    file: imageSchema,
+    zoom: z.coerce.number().min(1).max(3),
+    posX: z.coerce.number().min(0).max(100),
+    posY: z.coerce.number().min(0).max(100),
+    caption: z.string(),
   }),
 ]);
 

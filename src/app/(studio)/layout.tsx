@@ -19,7 +19,8 @@ async function StudioShell({ children }: { children: React.ReactNode }) {
       <header className="flex h-14 items-center justify-between border-b border-[var(--studio-line)] px-4">
         <nav className="flex items-center gap-4 text-sm">
           <Link href="/" className="font-semibold tracking-tight">Studio</Link>
-          <Link href="/briefing">Novo cliente</Link>
+          <Link href="/nova">Nova página</Link>
+          <Link href="/briefing">Briefing IA</Link>
           <Link href="/leads">Leads</Link>
           <Link href="/account">Conta</Link>
         </nav>

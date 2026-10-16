@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { archivePage, createPage, deletePage, duplicatePage } from "@/actions/studio";
+import { archivePage, deletePage, duplicatePage } from "@/actions/studio";
 import { prisma } from "@/lib/db";
 import { publicOrigin } from "@/lib/tenant";
 import { redirect } from "next/navigation";
@@ -19,34 +19,25 @@ async function Dashboard() {
     include: { analytics: true, leads: { select: { id: true } } },
   });
 
-  async function createBlank(formData: FormData) {
-    "use server";
-    const result = await createPage({
-      clientName: String(formData.get("clientName") || "Nova página"),
-      segment: String(formData.get("segment") || "local"),
-      slug: String(formData.get("slug") || ""),
-    });
-    if (!result.ok) return;
-    redirect(`/pages/${result.id}`);
-  }
-
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.18em]">Páginas</p>
           <h1 className="text-4xl tracking-tight">Clientes</h1>
+          <p className="mt-2 max-w-xl text-sm text-neutral-600">
+            Escolha um modelo, abra o editor e publique quando estiver pronto.
+          </p>
         </div>
-        <Link className="bg-[var(--studio-ink)] px-4 py-2 text-sm text-[var(--studio-bg)]" href="/briefing">Gerar com briefing</Link>
+        <div className="flex flex-wrap gap-2">
+          <Link className="bg-[var(--studio-ink)] px-4 py-2 text-sm text-[var(--studio-bg)]" href="/nova">
+            Nova página
+          </Link>
+          <Link className="border border-[var(--studio-ink)] px-4 py-2 text-sm" href="/briefing">
+            Gerar com briefing
+          </Link>
+        </div>
       </div>
-      <form action={createBlank} className="grid gap-3 border border-[var(--studio-line)] bg-white p-4 md:grid-cols-4">
-        <input className="border px-3 py-2" name="clientName" placeholder="Nome do cliente" required />
-        <input className="border px-3 py-2" name="slug" placeholder="subdominio" required />
-        <select className="border px-3 py-2" name="segment" defaultValue="local">
-          {["moda", "portfolio", "advocacia", "psicologia", "clinica", "restaurante", "barbearia", "infoproduto", "local"].map((item) => <option key={item}>{item}</option>)}
-        </select>
-        <button className="border border-[var(--studio-ink)] px-3 py-2 text-sm" type="submit">Página em branco</button>
-      </form>
       <div className="grid gap-4 md:grid-cols-2">
         {pages.map((page) => {
           const theme = readTheme(page.draftData);
@@ -76,12 +67,21 @@ async function Dashboard() {
           );
         })}
       </div>
+      {!pages.length ? (
+        <div className="border border-dashed border-[var(--studio-line)] bg-white/60 p-8 text-center">
+          <p className="text-lg font-medium">Nenhuma página ainda</p>
+          <p className="mt-2 text-sm text-neutral-600">Comece escolhendo um modelo de layout.</p>
+          <Link className="mt-4 inline-block bg-[var(--studio-ink)] px-4 py-2 text-sm text-[var(--studio-bg)]" href="/nova">
+            Nova página
+          </Link>
+        </div>
+      ) : null}
     </main>
   );
 }
 
 function label(status: string) {
-  if (status === "PUBLISHED") return "Publicada";
+  if (status === "PUBLISHED") return "No ar";
   if (status === "ARCHIVED") return "Arquivada";
   return "Rascunho";
 }
