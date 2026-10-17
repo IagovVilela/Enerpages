@@ -77,7 +77,7 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
     const baseline = gestureBaselineRef.current;
     gestureBaselineRef.current = null;
     // presentRef may lag one frame behind the last setCanvas during drag — prefer live state via flush on next tick
-    queuePromise.resolve().then(() => {
+    Promise.resolve().then(() => {
       if (baseline && !sameCanvas(baseline, presentRef.current)) {
         pushPast(baseline);
       }
@@ -116,7 +116,7 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
         if (sameCanvas(next, prev)) return prev;
         const snapshot = cloneCanvas(prev);
         presentRef.current = next;
-        queuePromise.resolve().then(() => {
+        Promise.resolve().then(() => {
           pushPast(snapshot);
         });
         return next;
