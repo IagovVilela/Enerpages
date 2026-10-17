@@ -109,23 +109,23 @@ export function Hero(props: PropsOf<"Hero">) {
   const body = {
     split: <div className="grid items-end gap-10 lg:grid-cols-12"><div className="lg:col-span-7">{copy}</div><Media image={props.image} blockId={id} path="image" className="min-h-[28rem] lg:col-span-5" /></div>,
     editorial: (
-      <div className="grid min-h-[min(88svh,52rem)] items-end gap-10 md:grid-cols-12">
+      <div className="grid items-center gap-10 py-6 md:grid-cols-12 md:py-10">
         <div className="space-y-5 md:col-span-7">
           <p className="eyebrow text-xs uppercase tracking-[0.2em] text-[var(--color-primary)]">{props.eyebrow}</p>
           {title}
           <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
           {ctas}
         </div>
-        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[28rem]" />
+        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[26rem]" />
       </div>
     ),
     immersive,
     asymmetric: <div className="grid gap-8 md:grid-cols-[auto_1fr]"><p className="text-xs uppercase tracking-[0.28em] md:[writing-mode:vertical-rl]">{props.eyebrow}</p><div className="md:ml-[min(8cqw,4rem)]">{copy}<div className="mt-8 md:w-2/3 md:justify-self-end"><Media image={props.image} blockId={id} path="image" className="min-h-72" /></div></div></div>,
     cinematic: <div className="relative grid min-h-[88svh] items-end bg-[#0f1419] text-[#fafafa]"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-70" /><div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div></div>,
     light: (
-      <div className="relative grid min-h-[min(88svh,48rem)] items-end gap-8 bg-[#f5f0e8] text-[#1c1917] md:grid-cols-12 md:gap-10">
-        <div className="relative max-w-3xl p-6 md:col-span-7 md:p-10">{copy}</div>
-        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[28rem]" />
+      <div className="relative grid items-center gap-8 bg-[#f5f0e8] px-0 py-6 text-[#1c1917] md:grid-cols-12 md:gap-10 md:py-10">
+        <div className="relative max-w-3xl md:col-span-7">{copy}</div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[26rem]" />
       </div>
     ),
     brand: <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-40" /><div className="relative max-w-3xl p-6 md:p-10">{copy}</div></div>,
