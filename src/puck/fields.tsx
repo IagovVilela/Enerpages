@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { MaskedPhoneInput } from "@/components/masked-phone-input";
 import { uploadFile } from "@/puck/media-upload";
 import { isVideoSrc, type ImageField } from "@/puck/schema";
 
@@ -124,5 +125,31 @@ export function ImageControl({
         />
       </label>
     </div>
+  );
+}
+
+/** Campo de telefone/WhatsApp com máscara pt-BR no inspector Puck. */
+export function PhoneControl({
+  value,
+  onChange,
+  label = "Telefone",
+  mode = "whatsapp",
+}: {
+  value?: string;
+  onChange: (value: string) => void;
+  label?: string;
+  mode?: "whatsapp" | "national";
+}) {
+  return (
+    <label className="grid gap-1.5 text-xs text-neutral-600">
+      {label}
+      <MaskedPhoneInput
+        mode={mode}
+        className="border border-[var(--studio-line)] px-2 py-1.5 text-sm"
+        value={value || ""}
+        onChange={onChange}
+        placeholder={mode === "whatsapp" ? "(11) 99999-0000 ou +1555…" : "(11) 99999-0000"}
+      />
+    </label>
   );
 }

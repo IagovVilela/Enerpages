@@ -26,7 +26,7 @@ import {
 } from "@/puck/blocks";
 import { Badge, Band, Button, CardGrid, Clip, Divider, Panel, Picture, Spacer, Text } from "@/puck/primitives";
 import { defaultPropsMap } from "@/puck/defaults";
-import { ImageControl } from "@/puck/fields";
+import { ImageControl, PhoneControl } from "@/puck/fields";
 import { actionHrefField, animationField, featureArray, layoutField, linkField, visibilityField } from "@/puck/field-defs";
 import { VARIANTS, type ImageField, type RootProps } from "@/puck/schema";
 import { ThemeProvider } from "@/puck/theme";
@@ -38,6 +38,17 @@ function imageField(label = "Imagem ou vídeo") {
     key: label,
     render: ({ value, onChange }: { value: ImageField; onChange: (value: ImageField) => void }) => (
       <ImageControl value={value} onChange={onChange} label={label} />
+    ),
+  };
+}
+
+function phoneField(label = "Telefone") {
+  return {
+    type: "custom" as const,
+    label,
+    key: label,
+    render: ({ value, onChange }: { value: string; onChange: (value: string) => void }) => (
+      <PhoneControl value={value} onChange={onChange} label={label} mode="whatsapp" />
     ),
   };
 }
@@ -116,7 +127,7 @@ const components = withLockPermissions({
     defaultProps: props.get("Booking"),
     render: Booking,
   },
-  WhatsApp: { label: "WhatsApp", fields: { ...chrome("WhatsApp"), label: { type: "text", label: "Rótulo" }, phone: { type: "text", label: "Telefone" }, message: { type: "textarea", label: "Mensagem" } }, defaultProps: props.get("WhatsApp"), render: WhatsApp },
+  WhatsApp: { label: "WhatsApp", fields: { ...chrome("WhatsApp"), label: { type: "text", label: "Rótulo" }, phone: phoneField("Telefone"), message: { type: "textarea", label: "Mensagem" } }, defaultProps: props.get("WhatsApp"), render: WhatsApp },
   Text: { label: "Texto", fields: { ...chrome("Text"), text: { type: "textarea", label: "Texto", contentEditable: true }, align: alignField, fontSize: { type: "number", label: "Tamanho", min: 12, max: 120 } }, defaultProps: props.get("Text"), render: Text },
   Button: {
     label: "Botão",
@@ -178,7 +189,7 @@ export const config = {
         type: "object",
         label: "WhatsApp global",
         objectFields: {
-          phone: { type: "text", label: "Telefone" },
+          phone: phoneField("Telefone"),
           message: { type: "textarea", label: "Mensagem" },
           floating: { type: "radio", label: "Botão flutuante", options: [{ label: "Ligado", value: true }, { label: "Desligado", value: false }] },
         },

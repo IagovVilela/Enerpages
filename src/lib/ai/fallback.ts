@@ -1,6 +1,15 @@
 import { ARCHETYPES, FONT_BY_PERSONALITY, STYLE_BY_PERSONALITY, hashString } from "@/lib/ai/archetypes";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import {
+  fillName,
+  getSegmentCopy,
+  pickFrom,
+  pickMany,
+  resolveDifferentials,
+  resolveReferences,
+} from "@/lib/ai/segment-copy";
+import {
+  BG_ARTS,
   VARIANTS,
   defaultAnimation,
   defaultLayout,
@@ -27,16 +36,25 @@ function listFrom(value: string, fallback: string[]) {
 }
 
 function pick<T>(items: readonly T[], seed: number) {
-  return items[Math.abs(seed) % items.length];
+  return items[Math.abs(seed) % items.length]!;
 }
 
-function goalLabel(goal: Briefing["goal"], segment: string) {
-  if (goal === "agendar") return segment === "restaurante" ? "Reservar mesa" : "Agendar conversa";
-  if (goal === "vender") return segment === "moda" ? "Ver peças" : "Quero saber mais";
-  return "Entrar em contato";
+function goalLabel(goal: Briefing["goal"], segment: string, ctaTitles: string[], seed: number) {
+  if (goal === "agendar") {
+    return segment === "restaurante" ? "Reservar mesa" : pick(ctaTitles, seed) || "Agendar conversa";
+  }
+  if (goal === "vender") {
+    return segment === "moda" ? "Ver peças" : pick(ctaTitles, seed + 1) || "Quero saber mais";
+  }
+  return pick(ctaTitles, seed + 2) || "Entrar em contato";
 }
 
-function chrome(type: BlockType, seed: number, preset: PropsOf<"Hero">["animation"]["preset"], index: number) {
+function chrome(
+  type: BlockType,
+  seed: number,
+  preset: PropsOf<"Hero">["animation"]["preset"],
+  index: number,
+) {
   return {
     id: uid(type, index),
     anchor: type.toLowerCase(),
@@ -44,6 +62,8 @@ function chrome(type: BlockType, seed: number, preset: PropsOf<"Hero">["animatio
     animation: {
       ...defaultAnimation(preset),
       delay: (seed % 4) * 0.05,
+      trigger: type === "Hero" ? ("load" as const) : ("view" as const),
+      preset: type === "Hero" ? ("none" as const) : preset,
     },
     locked: false,
     layout: defaultLayout(),
@@ -53,39 +73,86 @@ function chrome(type: BlockType, seed: number, preset: PropsOf<"Hero">["animatio
 
 export function generateDeterministic(briefing: Briefing, direction = 0): PageDocument {
   const archetype = ARCHETYPES[briefing.segment] ?? ARCHETYPES.local;
-  const seed = hashString(`${briefing.clientName}:${briefing.segment}:${direction}`);
-  const personality = archetype.personalities[(seed + direction) % archetype.personalities.length];
-  const colors = { ...archetype.palettes[(seed + direction * 2) % archetype.palettes.length] };
+  const bank = getSegmentCopy(briefing.segment);
+  const seed = hashString(
+    `${briefing.clientName}:${briefing.segment}:${briefing.goal}:${direction}:${briefing.tone}`,
+  );
+  const dir = ((direction % 3) + 3) % 3;
+
+  const personality =
+    archetype.personalities[(seed + dir) % archetype.personalities.length]!;
+  const colors = { ...archetype.palettes[(seed + dir * 2) % archetype.palettes.length]! };
   const colorMatch = briefing.colors.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
   if (colorMatch) colors.primary = colorMatch[0];
 
-  const services = listFrom(briefing.services, archetype.services);
-  const cta = goalLabel(briefing.goal, briefing.segment);
-  const name = briefing.clientName.trim();
-  const audience = briefing.audience.trim() || "quem procura um trabalho com assinatura própria";
-  const diff = briefing.differentials.trim() || "um jeito de trabalhar reconhecível";
-  const ethical = archetype.ethical;
-  const intro = ethical
-    ? `${name} apresenta o trabalho com clareza, ética e sem promessa de resultado.`
-    : `${name} existe para ${audience}, com ${diff}.`;
+  const motion = archetype.motions[dir] ?? archetype.motions[0]!;
+  const bgArt = (
+    briefing.references.toLowerCase().includes("limpo")
+      ? "none"
+      : archetype.bgArts[dir] ?? pick(BG_ARTS, seed)
+  ) as (typeof BG_ARTS)[number];
 
-  const ordered: BlockType[] = [
+  const services = listFrom(briefing.services, archetype.services);
+  const diffs = resolveDifferentials(briefing.differentials, briefing.segment, seed);
+  const refs = resolveReferences(briefing.references, briefing.segment, seed + 9);
+  const name = briefing.clientName.trim() || "Sua marca";
+  const audience =
+    briefing.audience.trim() ||
+    (archetype.ethical
+      ? "pessoas que buscam informação clara e atendimento responsável"
+      : "quem procura um trabalho com assinatura própria");
+  const diff = diffs[0] || briefing.differentials.trim() || "um jeito de trabalhar reconhecível";
+  const ethical = archetype.ethical;
+  const cta = goalLabel(briefing.goal, briefing.segment, bank.ctaTitles, seed);
+
+  const headline = fillName(bank.headlines[dir % bank.headlines.length]!, name);
+  const tagline = bank.taglines[dir % bank.taglines.length]!;
+  const aboutBody = fillName(bank.aboutBodies[dir % bank.aboutBodies.length]!, name);
+  const eyebrow = bank.eyebrows[dir % bank.eyebrows.length]!;
+  const intro = ethical
+    ? aboutBody
+    : briefing.tone.trim()
+      ? `${name} — tom ${briefing.tone.trim()}. ${tagline}`
+      : aboutBody;
+
+  const recipeBody = archetype.recipes[dir] ?? archetype.recipes[0]!;
+  const withWhatsApp = archetype.blocks.includes("WhatsApp");
+  const sequence: BlockType[] = [
     "Navbar",
-    ...archetype.blocks.filter((type) => type !== "Navbar" && type !== "Footer" && type !== "WhatsApp"),
-    "Cta",
+    ...recipeBody.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp"),
+    ...(recipeBody.includes("Cta") ? [] : (["Cta"] as const)),
     "Footer",
-    ...(archetype.blocks.includes("WhatsApp") ? (["WhatsApp"] as const) : []),
-  ];
-  const unique = ordered.filter((type, index) => ordered.indexOf(type) === index);
-  const rotatedBody = unique.filter((type) => !["Navbar", "Footer", "WhatsApp"].includes(type));
-  const shift = direction % Math.max(rotatedBody.length, 1);
-  const body = [...rotatedBody.slice(shift), ...rotatedBody.slice(0, shift)];
-  const sequence: BlockType[] = ["Navbar", ...body, "Footer", ...(unique.includes("WhatsApp") ? (["WhatsApp"] as const) : [])];
+    ...(withWhatsApp ? (["WhatsApp"] as const) : []),
+  ].filter((type, index, arr) => arr.indexOf(type) === index) as BlockType[];
+
+  const copy: Copy = {
+    name,
+    intro,
+    headline,
+    tagline,
+    aboutBody,
+    eyebrow,
+    services,
+    serviceBlurbs: pickMany(bank.serviceBlurbs, seed, Math.max(services.length, 3)),
+    diffs,
+    refs,
+    cta,
+    audience,
+    diff,
+    ethical,
+    segment: briefing.segment,
+    process: pickFrom(bank.processRecipes, seed + dir),
+    faqs: pickFrom(bank.faqRecipes, seed + dir * 2),
+    galleryTags: bank.galleryTags,
+    catalogNotes: bank.catalogNotes,
+    marqueeExtras: bank.marqueeExtras,
+    ctaTitle: pickFrom(bank.ctaTitles, seed + dir + 1),
+  };
 
   const content = sequence.map((type, index) => {
-    const base = chrome(type, seed + index * 5 + direction * 11, archetype.motion, index);
-    const variant = pick(VARIANTS[type], seed + index + direction * 3);
-    return makeBlock(type, { ...base, variant }, { name, intro, services, cta, audience, diff, ethical, segment: briefing.segment });
+    const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
+    const variant = pick(VARIANTS[type], seed + index + dir * 3);
+    return makeBlock(type, { ...base, variant }, copy);
   });
 
   const document: PageDocument = {
@@ -96,13 +163,13 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
           colors,
           fonts: FONT_BY_PERSONALITY[personality],
           ...STYLE_BY_PERSONALITY[personality],
-          bgArt: "none",
-          bgArtColor: "",
-          bgArtStrength: 45,
+          bgArt,
+          bgArtColor: colors.foreground,
+          bgArtStrength: 40 + (dir % 3) * 12,
         },
         seo: {
           title: `${name} · ${archetype.label}`,
-          description: intro.slice(0, 160),
+          description: (tagline || intro).slice(0, 160),
           ogImage: "",
         },
         favicon: "",
@@ -110,7 +177,7 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
         whatsapp: {
           phone: "",
           message: `Olá, vim pelo site de ${name}.`,
-          floating: false,
+          floating: withWhatsApp,
         },
         analytics: { ga4: "", metaPixel: "" },
         archetype: briefing.segment,
@@ -126,12 +193,25 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
 type Copy = {
   name: string;
   intro: string;
+  headline: string;
+  tagline: string;
+  aboutBody: string;
+  eyebrow: string;
   services: string[];
+  serviceBlurbs: string[];
+  diffs: string[];
+  refs: string[];
   cta: string;
   audience: string;
   diff: string;
   ethical: boolean;
   segment: string;
+  process: Array<{ title: string; description: string }>;
+  faqs: Array<{ question: string; answer: string }>;
+  galleryTags: string[];
+  catalogNotes: string[];
+  marqueeExtras: string[];
+  ctaTitle: string;
 };
 
 function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy): Block {
@@ -139,55 +219,296 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
   const link = { label: copy.cta, href: "#contato" };
   switch (type) {
     case "Navbar":
-      return { type, props: { ...base, logo: copy.name, links: [{ label: "Sobre", href: "#about" }, { label: "Serviços", href: "#services" }, { label: "Contato", href: "#contato" }], cta: link } };
+      return {
+        type,
+        props: {
+          ...base,
+          logo: copy.name,
+          links: [
+            { label: "Sobre", href: "#about" },
+            { label: "Serviços", href: "#services" },
+            { label: "Contato", href: "#contato" },
+          ],
+          cta: link,
+        },
+      };
     case "Hero":
-      return { type, props: { ...base, eyebrow: copy.ethical ? "Apresentação profissional" : copy.audience, title: copy.name, subtitle: copy.intro, image: img, primaryCta: link, secondaryCta: { label: "Ver o trabalho", href: "#about" } } };
+      return {
+        type,
+        props: {
+          ...base,
+          eyebrow: copy.ethical ? "Apresentação profissional" : copy.eyebrow || copy.audience,
+          title: copy.headline,
+          subtitle: copy.tagline || copy.intro,
+          image: img,
+          primaryCta: link,
+          secondaryCta: { label: copy.ethical ? "Conhecer o trabalho" : "Ver mais", href: "#about" },
+        },
+      };
     case "About":
-      return { type, props: { ...base, eyebrow: "Sobre", title: copy.ethical ? `Como ${copy.name} trabalha` : `O jeito ${copy.name}`, body: copy.intro, image: img, points: copy.services.slice(0, 3).map((title) => ({ title, description: copy.diff })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          eyebrow: "Sobre",
+          title: copy.ethical ? `Como ${copy.name} trabalha` : `O jeito ${copy.name}`,
+          body: copy.aboutBody,
+          image: img,
+          points: copy.diffs.slice(0, 3).map((title, i) => ({
+            title: title.slice(0, 48),
+            description: copy.serviceBlurbs[i] || copy.tagline,
+          })),
+        },
+      };
     case "Services":
-      return { type, props: { ...base, eyebrow: "Serviços", title: copy.ethical ? "Áreas de atendimento" : "O que está à mesa", items: copy.services.map((title) => ({ title, description: copy.ethical ? "Descrição institucional, sem promessa de resultado." : copy.diff })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          eyebrow: "Serviços",
+          title: copy.ethical ? "Áreas de atendimento" : "O que oferecemos",
+          items: copy.services.map((title, i) => ({
+            title,
+            description: copy.ethical
+              ? "Descrição institucional, sem promessa de resultado."
+              : copy.serviceBlurbs[i % copy.serviceBlurbs.length] || copy.diff,
+          })),
+        },
+      };
     case "Catalog":
-      return { type, props: { ...base, eyebrow: "Seleção", title: "Peças e opções", items: copy.services.map((title) => ({ title, description: "Substitua pela descrição real.", price: "Sob consulta", image: img })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          eyebrow: "Seleção",
+          title: copy.segment === "restaurante" ? "Carta e opções" : "Peças e opções",
+          items: copy.services.map((title, i) => ({
+            title,
+            description: copy.diffs[i % copy.diffs.length] || "Substitua pela descrição real.",
+            price: copy.catalogNotes[i % copy.catalogNotes.length] || "Sob consulta",
+            image: img,
+          })),
+        },
+      };
     case "Gallery":
-      return { type, props: { ...base, title: "Imagens para substituir", images: [0, 1, 2, 3].map((n) => ({ image: img, caption: `Imagem ${n + 1}`, tag: n % 2 ? "Estúdio" : "Detalhe" })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Imagens para substituir",
+          images: [0, 1, 2, 3, 4, 5].map((n) => ({
+            image: img,
+            caption: `Imagem ${n + 1} — substitua por foto real autorizada`,
+            tag: copy.galleryTags[n % copy.galleryTags.length] || "Detalhe",
+          })),
+        },
+      };
     case "Testimonials":
-      return { type, props: { ...base, title: "Depoimentos reais", items: [{ quote: "Substituir depoimento real — não publique texto inventado.", name: "Nome do cliente", role: "Substituir", image: img, placeholder: true }] } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Depoimentos reais",
+          items: [
+            {
+              quote: "Substituir depoimento real — não publique texto inventado.",
+              name: "Nome do cliente",
+              role: "Substituir",
+              image: img,
+              placeholder: true,
+            },
+          ],
+        },
+      };
     case "Stats":
-      return { type, props: { ...base, title: "Em números", items: [{ value: "—", label: "Substituir dado real" }, { value: "—", label: "Substituir dado real" }, { value: "—", label: "Substituir dado real" }] } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Em números",
+          items: [
+            { value: "—", label: "Dado real a publicar" },
+            { value: "—", label: "Anos / projetos (real)" },
+            { value: "—", label: "Métrica que você comprova" },
+          ],
+        },
+      };
     case "Process":
-      return { type, props: { ...base, title: "Como acontece", items: ["Conversa", "Direção", "Entrega"].map((title, i) => ({ title, description: copy.services[i] || copy.diff })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Como acontece",
+          items: copy.process.map((step) => ({
+            title: step.title,
+            description: step.description,
+          })),
+        },
+      };
     case "Pricing":
-      return { type, props: { ...base, title: "Formatos", plans: copy.services.slice(0, 3).map((name, i) => ({ name, price: "Sob consulta", description: copy.diff, features: "Item real\nItem real", cta: link, featured: i === 1 })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Formatos",
+          plans: copy.services.slice(0, 3).map((name, i) => ({
+            name,
+            price: copy.catalogNotes[i] || "Sob consulta",
+            description: copy.diffs[i] || copy.diff,
+            features: copy.diffs.slice(0, 3).join("\n") || "Item real\nItem real",
+            cta: link,
+            featured: i === 1,
+          })),
+        },
+      };
     case "Faq":
-      return { type, props: { ...base, title: "Perguntas", items: [{ question: "Como começamos?", answer: copy.ethical ? "Por uma conversa inicial, sem promessa de resultado." : "Pelo contato, para entender o que você precisa." }, { question: "Onde acontece?", answer: "No endereço publicado ou no canal combinado." }] } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Perguntas",
+          items: copy.faqs,
+        },
+      };
     case "Team":
-      return { type, props: { ...base, title: "Pessoas", people: [{ title: "Nome da pessoa", role: "Função", description: "Substitua pela biografia real.", image: img }] } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Pessoas",
+          people: [
+            {
+              title: "Nome da pessoa",
+              role: "Função",
+              description: "Substitua pela biografia real.",
+              image: img,
+            },
+          ],
+        },
+      };
     case "Timeline":
-      return { type, props: { ...base, title: "Percurso", events: [{ year: "Início", title: copy.name, description: copy.intro }, { year: "Agora", title: "Trabalho atual", description: copy.diff }] } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Percurso",
+          events: [
+            { year: "Início", title: copy.name, description: copy.aboutBody },
+            { year: "Foco", title: copy.eyebrow, description: copy.diff },
+            { year: "Agora", title: "Trabalho atual", description: copy.tagline },
+          ],
+        },
+      };
     case "Map":
-      return { type, props: { ...base, title: "Onde estamos", address: "Endereço a substituir", embedUrl: "", note: "Inclua o endereço real antes de publicar." } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Onde estamos",
+          address: "Endereço a substituir",
+          embedUrl: "",
+          note: "Inclua o endereço real antes de publicar.",
+        },
+      };
     case "Contact":
-      return { type, props: { ...base, anchor: "contato", title: "Contato", subtitle: copy.intro, submitLabel: "Enviar" } };
+      return {
+        type,
+        props: {
+          ...base,
+          anchor: "contato",
+          title: "Contato",
+          subtitle: copy.tagline || copy.intro,
+          submitLabel: "Enviar",
+        },
+      };
     case "Cta":
-      return { type, props: { ...base, eyebrow: copy.name, title: copy.ethical ? "Vamos conversar com calma" : copy.cta, subtitle: copy.diff, cta: link } };
+      return {
+        type,
+        props: {
+          ...base,
+          eyebrow: copy.name,
+          title: copy.ethical ? "Vamos conversar com calma" : copy.ctaTitle || copy.cta,
+          subtitle: copy.diffs.slice(0, 2).join(" · ") || copy.diff,
+          cta: link,
+        },
+      };
     case "Footer":
-      return { type, props: { ...base, logo: copy.name, note: copy.intro, links: [{ label: "Topo", href: "#topo" }, { label: "Contato", href: "#contato" }], legal: `© ${new Date().getFullYear()} ${copy.name}` } };
+      return {
+        type,
+        props: {
+          ...base,
+          logo: copy.name,
+          note: copy.refs[0] ? `Clima visual: ${copy.refs[0]}` : copy.tagline,
+          links: [
+            { label: "Topo", href: "#topo" },
+            { label: "Contato", href: "#contato" },
+          ],
+          legal: `© ${new Date().getFullYear()} ${copy.name}`,
+        },
+      };
     case "Marquee":
-      return { type, props: { ...base, items: [...copy.services, copy.name].map((label) => ({ label })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          items: [...copy.services, ...copy.marqueeExtras, copy.name]
+            .slice(0, 8)
+            .map((label) => ({ label })),
+        },
+      };
     case "Video":
-      return { type, props: { ...base, title: "Vídeo", url: "", caption: "Envie um MP4 ou WEBM, ou cole um link do YouTube ou Vimeo.", file: img } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Vídeo",
+          url: "",
+          caption: "Envie um MP4 ou WEBM, ou cole um link do YouTube ou Vimeo.",
+          file: img,
+        },
+      };
     case "BeforeAfter":
-      return { type, props: { ...base, title: "Antes e depois", before: img, after: img, beforeLabel: "Antes", afterLabel: "Depois" } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Antes e depois",
+          before: img,
+          after: img,
+          beforeLabel: "Antes",
+          afterLabel: "Depois",
+        },
+      };
     case "Booking":
-      return { type, props: { ...base, title: "Agenda", subtitle: "O link abre a ferramenta de agendamento que você já usa.", href: "#contato", label: copy.cta } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Agenda",
+          subtitle: "O link abre a ferramenta de agendamento que você já usa.",
+          href: "#contato",
+          label: copy.cta,
+        },
+      };
     case "WhatsApp":
-      return { type, props: { ...base, label: "WhatsApp", phone: "", message: `Olá, vim pelo site de ${copy.name}.` } };
+      return {
+        type,
+        props: {
+          ...base,
+          label: "WhatsApp",
+          phone: "",
+          message: `Olá, vim pelo site de ${copy.name}.`,
+        },
+      };
     case "Text":
       return { type, props: { ...base, text: copy.intro, align: "left", fontSize: 18 } };
     case "Button":
       return { type, props: { ...base, label: copy.cta, href: "#contato", align: "left" } };
     case "Badge":
-      return { type, props: { ...base, text: copy.ethical ? "Institucional" : "Novidade", align: "left" } };
+      return {
+        type,
+        props: { ...base, text: copy.ethical ? "Institucional" : copy.eyebrow || "Novidade", align: "left" },
+      };
     case "Divider":
       return { type, props: { ...base } };
     case "Spacer":
@@ -195,13 +516,27 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
     case "Panel":
       return { type, props: { ...base, title: copy.name, body: copy.diff } };
     case "CardGrid":
-      return { type, props: { ...base, title: "Em grade", cards: copy.services.slice(0, 3).map((title) => ({ title, description: copy.diff, emoji: "" })) } };
+      return {
+        type,
+        props: {
+          ...base,
+          title: "Em destaque",
+          cards: copy.diffs.slice(0, 3).map((title) => ({
+            title: title.slice(0, 40),
+            description: copy.tagline,
+            emoji: "",
+          })),
+        },
+      };
     case "Band":
-      return { type, props: { ...base, text: copy.cta, href: "#contato", label: copy.cta } };
+      return { type, props: { ...base, text: copy.ctaTitle || copy.cta, href: "#contato", label: copy.cta } };
     case "Picture":
       return { type, props: { ...base, image: img, zoom: 1, posX: 50, posY: 50, caption: "Substituir imagem" } };
     case "Clip":
-      return { type, props: { ...base, file: img, zoom: 1, posX: 50, posY: 50, caption: "Envie uma imagem ou um vídeo." } };
+      return {
+        type,
+        props: { ...base, file: img, zoom: 1, posX: 50, posY: 50, caption: "Envie uma imagem ou um vídeo." },
+      };
     default: {
       const _exhaustive: never = type;
       return _exhaustive;
@@ -217,11 +552,31 @@ export function sampleBlock(type: BlockType): Block {
   return makeBlock(type, { ...chrome(type, 1, "fade", 0), id: freshBlockId(type) }, {
     name: "Seu nome",
     intro: "Texto para substituir.",
+    headline: "Seu nome",
+    tagline: "Texto de apoio.",
+    aboutBody: "Texto para substituir.",
+    eyebrow: "Sobre",
     services: ["Item um", "Item dois", "Item três"],
+    serviceBlurbs: ["Descrição curta.", "Descrição curta.", "Descrição curta."],
+    diffs: ["Diferencial um", "Diferencial dois", "Diferencial três"],
+    refs: ["Referência visual"],
     cta: "Saiba mais",
     audience: "",
     diff: "Descrição curta.",
     ethical: false,
     segment: "local",
+    process: [
+      { title: "Passo 1", description: "Descrição." },
+      { title: "Passo 2", description: "Descrição." },
+      { title: "Passo 3", description: "Descrição." },
+    ],
+    faqs: [
+      { question: "Como começamos?", answer: "Pelo contato." },
+      { question: "Onde acontece?", answer: "No endereço publicado." },
+    ],
+    galleryTags: ["Detalhe"],
+    catalogNotes: ["Sob consulta"],
+    marqueeExtras: ["marca"],
+    ctaTitle: "Saiba mais",
   });
 }

@@ -2,6 +2,7 @@
 
 import { LayoutGroup, motion } from "motion/react";
 import { useMemo, useState, type FormEvent } from "react";
+import { MaskedPhoneInput } from "@/components/masked-phone-input";
 import { isExternalHref, resolveActionHref, whatsappHref } from "@/lib/action-href";
 import { Media, usePage } from "@/puck/theme";
 import type { PropsOf } from "@/puck/schema";
@@ -68,6 +69,7 @@ export function FaqList({ variant, items }: { variant: PropsOf<"Faq">["variant"]
 export function ContactForm({ submitLabel }: { submitLabel: string }) {
   const page = usePage();
   const [status, setStatus] = useState("");
+  const [phone, setPhone] = useState("");
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (page.editing) {
@@ -83,20 +85,29 @@ export function ContactForm({ submitLabel }: { submitLabel: string }) {
         slug: page.settings.slug,
         name: form.get("name"),
         email: form.get("email"),
-        phone: form.get("phone"),
+        phone,
         message: form.get("message"),
         company: form.get("company"),
         token,
       }),
     });
     setStatus(response.ok ? "Mensagem recebida." : "Não foi possível enviar agora.");
-    if (response.ok) event.currentTarget.reset();
+    if (response.ok) {
+      event.currentTarget.reset();
+      setPhone("");
+    }
   }
   return (
     <form id="contato" className="grid gap-3" onSubmit={onSubmit}>
       <input className="border border-[var(--color-border)] bg-transparent px-3 py-3" name="name" placeholder="Nome" required />
       <input className="border border-[var(--color-border)] bg-transparent px-3 py-3" name="email" type="email" placeholder="E-mail" required />
-      <input className="border border-[var(--color-border)] bg-transparent px-3 py-3" name="phone" placeholder="Telefone" />
+      <MaskedPhoneInput
+        className="border border-[var(--color-border)] bg-transparent px-3 py-3"
+        name="phone"
+        value={phone}
+        onChange={setPhone}
+        placeholder="(11) 99999-0000"
+      />
       <textarea className="min-h-32 border border-[var(--color-border)] bg-transparent px-3 py-3" name="message" placeholder="Mensagem" required />
       <input className="hidden" name="company" tabIndex={-1} autoComplete="off" />
       {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? <div className="cf-turnstile" data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY} /> : null}

@@ -1,14 +1,29 @@
+import { Suspense } from "react";
+import { connection } from "next/server";
 import { BriefingForm } from "@/components/briefing-form";
 import { prisma } from "@/lib/db";
 import { intakeToBriefing, intakeSchema } from "@/lib/intake/schema";
 import { normalizeSlug } from "@/lib/slug";
 import type { Briefing } from "@/puck/schema";
 
-export default async function BriefingPage({
+export default function BriefingPage({
   searchParams,
 }: {
   searchParams: Promise<{ intake?: string }>;
 }) {
+  return (
+    <Suspense fallback={<p className="p-8">Carregando briefing…</p>}>
+      <BriefingContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function BriefingContent({
+  searchParams,
+}: {
+  searchParams: Promise<{ intake?: string }>;
+}) {
+  await connection();
   const { intake: intakeId } = await searchParams;
   let initial: Briefing | undefined;
   let intakePayloadJson: string | undefined;

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { ARCHETYPES } from "@/lib/ai/archetypes";
+import { ARCHETYPES, directionLabelFor } from "@/lib/ai/archetypes";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
 import { generateJSON, isQuotaError, providerOrder } from "@/lib/ai/provider";
@@ -113,7 +113,7 @@ const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 2 })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 3 })).digest("hex");
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -213,8 +213,6 @@ function applyMotion(document: PageDocument, presets: Array<(typeof PRESETS)[num
   return document;
 }
 
-const DIRECTIONS = ["editorial e assimétrica", "ousada e contrastada", "acolhedora e orgânica"] as const;
-
 export type Proposal = {
   label: string;
   direction: string;
@@ -232,7 +230,7 @@ type GenerateState = {
 async function generateOneProposal(briefing: Briefing, direction: number, state: GenerateState): Promise<Proposal> {
   const fallback = generateDeterministic(briefing, direction);
   const label = `Proposta ${direction + 1}`;
-  const directionLabel = DIRECTIONS[direction];
+  const directionLabel = directionLabelFor(briefing.segment, direction);
 
   if (state.quotaExhausted || Date.now() - state.started > state.budgetMs) {
     if (!state.warning && Date.now() - state.started > state.budgetMs) {
@@ -305,9 +303,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 export async function generateProposals(briefing: Briefing) {
-  const fallbacks: Proposal[] = DIRECTIONS.map((direction, index) => ({
+  const fallbacks: Proposal[] = [0, 1, 2].map((index) => ({
     label: `Proposta ${index + 1}`,
-    direction,
+    direction: directionLabelFor(briefing.segment, index),
     source: "fallback" as const,
     data: generateDeterministic(briefing, index),
   }));

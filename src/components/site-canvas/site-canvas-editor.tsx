@@ -36,6 +36,7 @@ import {
   type CanvasElementType,
   type SiteCanvasConfig,
 } from "@/lib/canvas/site-canvas";
+import { MaskedPhoneInput } from "@/components/masked-phone-input";
 import { applyThemeChangeToCanvas, canvasThemeStyle } from "@/lib/canvas/theme-style";
 import { useCanvasHistory } from "@/lib/canvas/use-canvas-history";
 import { cn } from "@/lib/cn";
@@ -848,14 +849,15 @@ export function SiteCanvasEditor({
               <div className="mt-2 grid gap-2 border-t border-[var(--studio-line)] pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">WhatsApp da página</p>
                 <label className="grid gap-1">
-                  Telefone (com DDI)
-                  <input
+                  Telefone WhatsApp
+                  <MaskedPhoneInput
+                    mode="whatsapp"
                     className="border px-2 py-1"
-                    placeholder="5511999999999"
+                    placeholder="(11) 99999-0000 ou +1555…"
                     value={canvas.theme?.whatsappPhone || ""}
-                    onChange={(e) => {
+                    onChange={(value) => {
                       commitCanvas((prev) =>
-                        applyThemeChangeToCanvas(prev, { ...prev.theme, whatsappPhone: e.target.value }),
+                        applyThemeChangeToCanvas(prev, { ...prev.theme, whatsappPhone: value }),
                       );
                       markDirty();
                     }}

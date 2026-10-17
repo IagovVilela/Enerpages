@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { formatBrPhoneNational } from "@/lib/br-input-masks";
 import { prisma } from "@/lib/db";
 
 export default function LeadsPage() {
@@ -33,14 +34,32 @@ async function Leads() {
           </thead>
           <tbody>
             {leads.map((lead) => {
-              const payload = lead.payload as { name?: string; email?: string; message?: string };
+              const payload = lead.payload as {
+                name?: string;
+                email?: string;
+                phone?: string;
+                message?: string;
+              };
+              const phone = payload.phone
+                ? formatBrPhoneNational(payload.phone) || payload.phone
+                : "";
               return (
                 <tr key={lead.id} className="border-b">
                   <td className="p-3" suppressHydrationWarning>
                     {lead.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC
                   </td>
                   <td className="p-3"><Link href={`/pages/${lead.pageId}`}>{lead.page.clientName}</Link></td>
-                  <td className="p-3">{payload.name} · {payload.email}<br />{payload.message}</td>
+                  <td className="p-3">
+                    {payload.name}
+                    {payload.email ? ` · ${payload.email}` : ""}
+                    {phone ? ` · ${phone}` : ""}
+                    {payload.message ? (
+                      <>
+                        <br />
+                        {payload.message}
+                      </>
+                    ) : null}
+                  </td>
                 </tr>
               );
             })}

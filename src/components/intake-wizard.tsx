@@ -9,8 +9,13 @@ import {
   SEGMENTS,
 } from "@/puck/schema";
 import { PAGE_TEMPLATE_META } from "@/puck/page-templates";
+import { FONT_BY_PERSONALITY } from "@/lib/ai/archetypes";
+import { canvasBgArtStyle } from "@/lib/canvas/bg-art";
+import { MaskedPhoneInput } from "@/components/masked-phone-input";
+import { formatInstagramHandle } from "@/lib/br-input-masks";
 import { emptyIntake, type IntakePayload } from "@/lib/intake/schema";
 import { cn } from "@/lib/cn";
+import { fontAssets } from "@/puck/fonts";
 
 const STEPS = [
   { id: 1, title: "Negócio", blurb: "Quem você é e o que oferece." },
@@ -62,8 +67,27 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
   const progress = useMemo(() => (step / STEPS.length) * 100, [step]);
 
   function patch<K extends keyof IntakePayload>(key: K, value: IntakePayload[K]) {
-    setData((prev) => ({ ...prev, [key]: value }));
+    setData((prev) => {
+      if (key === "personality") {
+        const personality = value as IntakePayload["personality"];
+        const fonts = FONT_BY_PERSONALITY[personality];
+        return {
+          ...prev,
+          personality,
+          fontDisplay: fonts.display,
+          fontBody: fonts.body,
+        };
+      }
+      return { ...prev, [key]: value };
+    });
   }
+
+  const previewFonts = fontAssets(data.fontDisplay, data.fontBody);
+  const previewArt = canvasBgArtStyle(data.bgArt, {
+    primary: safeHex(data.primaryColor),
+    strength: 55,
+    preview: true,
+  });
 
   function validateStep(current: number) {
     if (current === 1) {
@@ -190,18 +214,35 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
         {step === 2 ? (
           <>
             <Field label="WhatsApp">
-              <input className="border px-3 py-2" value={data.whatsapp} onChange={(e) => patch("whatsapp", e.target.value)} placeholder="5511999999999" />
+              <MaskedPhoneInput
+                mode="whatsapp"
+                className="border px-3 py-2"
+                value={data.whatsapp}
+                onChange={(value) => patch("whatsapp", value)}
+                placeholder="(11) 99999-0000 ou +1555…"
+              />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Telefone">
-                <input className="border px-3 py-2" value={data.phone} onChange={(e) => patch("phone", e.target.value)} />
+                <MaskedPhoneInput
+                  className="border px-3 py-2"
+                  value={data.phone}
+                  onChange={(value) => patch("phone", value)}
+                  placeholder="(11) 99999-0000"
+                />
               </Field>
               <Field label="E-mail">
                 <input className="border px-3 py-2" type="email" value={data.email} onChange={(e) => patch("email", e.target.value)} />
               </Field>
             </div>
             <Field label="Instagram">
-              <input className="border px-3 py-2" value={data.instagram} onChange={(e) => patch("instagram", e.target.value)} placeholder="@sua_marca" />
+              <input
+                className="border px-3 py-2"
+                value={data.instagram}
+                onChange={(e) => patch("instagram", formatInstagramHandle(e.target.value))}
+                placeholder="@sua_marca"
+                autoComplete="off"
+              />
             </Field>
             <Field label="Endereço / área de atendimento">
               <textarea className="min-h-20 border px-3 py-2" value={data.address} onChange={(e) => patch("address", e.target.value)} />
@@ -211,15 +252,20 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
 
         {step === 3 ? (
           <>
-            <Field label="Personalidade">
-              <select className="border px-3 py-2" value={data.personality} onChange={(e) => patch("personality", e.target.value as IntakePayload["personality"])}>
-                {PERSONALITIES.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <div className="grid gap-1.5">
+              <Field label="Personalidade">
+                <select className="border px-3 py-2" value={data.personality} onChange={(e) => patch("personality", e.target.value as IntakePayload["personality"])}>
+                  {PERSONALITIES.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <p className="text-[11px] text-neutral-500">
+                Troca tipografia sugerida (título + texto). Você ainda pode ajustar as fontes abaixo.
+              </p>
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Cor principal">
                 <div className="flex gap-2">
@@ -263,15 +309,34 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
                 ))}
               </select>
             </Field>
-            <div className="border border-[var(--studio-line)] p-4" style={{ background: data.backgroundColor, color: "#1c1915" }}>
-              <p className="text-xs uppercase tracking-[0.16em]" style={{ color: data.primaryColor }}>
-                Prévia
+            <div
+              className={cn("border border-[var(--studio-line)] p-4", previewFonts.className)}
+              style={{
+                backgroundColor: safeHex(data.backgroundColor),
+                color: "#1c1915",
+                ...previewArt,
+              }}
+            >
+              <p
+                className="text-xs uppercase tracking-[0.16em]"
+                style={{ color: safeHex(data.primaryColor) }}
+              >
+                Prévia · {data.personality} · {data.bgArt}
               </p>
-              <p className="mt-2 font-serif text-3xl" style={{ fontFamily: data.fontDisplay }}>
+              <p
+                className="mt-2 text-3xl"
+                style={{ fontFamily: `var(${previewFonts.displayVar}), serif` }}
+              >
                 {data.clientName || "Sua marca"}
               </p>
-              <p className="mt-1 text-sm" style={{ fontFamily: data.fontBody }}>
+              <p
+                className="mt-1 text-sm"
+                style={{ fontFamily: `var(${previewFonts.bodyVar}), sans-serif` }}
+              >
                 {data.tagline || "Texto de apoio da marca."}
+              </p>
+              <p className="mt-3 text-[10px] uppercase tracking-[0.14em] text-neutral-500">
+                {data.fontDisplay} + {data.fontBody}
               </p>
             </div>
           </>

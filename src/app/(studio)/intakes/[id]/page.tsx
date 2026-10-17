@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { IntakeDetailActions } from "@/components/intake-detail-actions";
+import { formatBrPhoneNational, formatWhatsAppDisplayInput } from "@/lib/br-input-masks";
 import { prisma } from "@/lib/db";
 import { intakeSchema, type IntakePayload } from "@/lib/intake/schema";
 import { intakePublicUrl } from "@/lib/intake/token";
@@ -107,8 +108,8 @@ function IntakePayloadView({ payload }: { payload: IntakePayload }) {
     ["Público", payload.audience],
     ["Objetivo", payload.goal],
     ["Serviços", payload.services],
-    ["WhatsApp", payload.whatsapp],
-    ["Telefone", payload.phone],
+    ["WhatsApp", payload.whatsapp ? formatWhatsAppDisplayInput(payload.whatsapp) : ""],
+    ["Telefone", payload.phone ? formatBrPhoneNational(payload.phone) : ""],
     ["Instagram", payload.instagram],
     ["E-mail", payload.email],
     ["Endereço", payload.address],
