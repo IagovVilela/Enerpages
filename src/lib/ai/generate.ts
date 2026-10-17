@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { ARCHETYPES } from "@/lib/ai/archetypes";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
-import { generateJSON, isQuotaError } from "@/lib/ai/provider";
+import { generateJSON, isQuotaError, providerOrder } from "@/lib/ai/provider";
 import {
   BLOCK_TYPES,
   PERSONALITIES,
@@ -222,71 +222,101 @@ export type Proposal = {
   data: PageDocument;
 };
 
-export async function generateProposals(briefing: Briefing) {
-  const proposals: Proposal[] = [];
-  let warning: string | undefined;
-  let quotaExhausted = false;
-  const started = Date.now();
-  const budgetMs = 90_000;
-  for (let direction = 0; direction < 3; direction += 1) {
-    const fallback = generateDeterministic(briefing, direction);
-    if (quotaExhausted || Date.now() - started > budgetMs) {
-      if (!warning && Date.now() - started > budgetMs) {
-        warning = "A geração por IA passou do tempo limite. As propostas restantes usam o gerador local.";
-      }
-      proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "fallback", data: fallback });
-      continue;
+type GenerateState = {
+  quotaExhausted: boolean;
+  warning?: string;
+  started: number;
+  budgetMs: number;
+};
+
+async function generateOneProposal(briefing: Briefing, direction: number, state: GenerateState): Promise<Proposal> {
+  const fallback = generateDeterministic(briefing, direction);
+  const label = `Proposta ${direction + 1}`;
+  const directionLabel = DIRECTIONS[direction];
+
+  if (state.quotaExhausted || Date.now() - state.started > state.budgetMs) {
+    if (!state.warning && Date.now() - state.started > state.budgetMs) {
+      state.warning = "A geração por IA passou do tempo limite. As propostas restantes usam o gerador local.";
     }
-    try {
-      const base = fallback;
-      const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
-        generateJSON(
-          [
-            `Briefing: ${JSON.stringify(briefing)}.`,
-            `Direção criativa obrigatória: ${DIRECTIONS[direction]}.`,
-            `personality: um de [${PERSONALITIES.join(", ")}].`,
-            "paletteIndex: inteiro 0-8.",
-            `blocks: 5 a 9 itens; type exatamente um de [${BLOCK_TYPES.join(", ")}] (Cta, não CTA).`,
-            "variant: string curta compatível com o tipo (ex.: Hero split|editorial|immersive).",
-            "Inclua Navbar e Footer. Varie a ordem. Não invente types.",
-          ].join(" "),
-          structureInputSchema,
-          SYSTEM,
-        ),
-      );
-      let document = applyStructure(base, structure.data, briefing);
-      const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
-        generateJSON(
-          `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
-          textSchema,
-          SYSTEM,
-        ),
-      );
-      document = applyTexts(document, texts.data);
-      const motionPresets = document.content.map((_, index) =>
-        index === 0 ? "none" : (["fade", "slide-up", "stagger", "blur-in", "scale"] as const)[(index - 1) % 5],
-      );
-      document = applyMotion(document, motionPresets);
-      document = enforceCompliance(pageDataSchema.parse(document), briefing.segment);
-      proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "ai", data: document });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (isQuotaError(error)) {
-        quotaExhausted = true;
-        warning = proposals.some((item) => item.source === "ai")
-          ? "Limite da cota gratuita atingido; as propostas restantes usam o gerador local."
-          : "A cota gratuita de IA acabou. As propostas saem do gerador local de arquétipos.";
-      } else if (/Nenhuma chave de IA configurada|invalid_api_key/i.test(message)) {
-        quotaExhausted = true;
-        warning = "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.";
-      } else if (!warning) {
-        warning = "A IA falhou em pelo menos uma proposta; essas saíram do gerador local.";
-      }
-      proposals.push({ label: `Proposta ${direction + 1}`, direction: DIRECTIONS[direction], source: "fallback", data: fallback });
-    }
+    return { label, direction: directionLabel, source: "fallback", data: fallback };
   }
 
-  return { proposals, warning };
+  try {
+    const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
+      generateJSON(
+        [
+          `Briefing: ${JSON.stringify(briefing)}.`,
+          `Direção criativa obrigatória: ${directionLabel}.`,
+          `personality: um de [${PERSONALITIES.join(", ")}].`,
+          "paletteIndex: inteiro 0-8.",
+          `blocks: 5 a 9 itens; type exatamente um de [${BLOCK_TYPES.join(", ")}] (Cta, não CTA).`,
+          "variant: string curta compatível com o tipo (ex.: Hero split|editorial|immersive).",
+          "Inclua Navbar e Footer. Varie a ordem. Não invente types.",
+        ].join(" "),
+        structureInputSchema,
+        SYSTEM,
+      ),
+    );
+    let document = applyStructure(fallback, structure.data, briefing);
+    const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
+      generateJSON(
+        `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
+        textSchema,
+        SYSTEM,
+      ),
+    );
+    document = applyTexts(document, texts.data);
+    const motionPresets = document.content.map((_, index) =>
+      index === 0 ? "none" : (["fade", "slide-up", "stagger", "blur-in", "scale"] as const)[(index - 1) % 5],
+    );
+    document = applyMotion(document, motionPresets);
+    document = enforceCompliance(pageDataSchema.parse(document), briefing.segment);
+    return { label, direction: directionLabel, source: "ai", data: document };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isQuotaError(error)) {
+      state.quotaExhausted = true;
+      state.warning =
+        "A cota gratuita de IA acabou. As propostas saem do gerador local de arquétipos.";
+    } else if (/Nenhuma chave de IA configurada|invalid_api_key/i.test(message)) {
+      state.quotaExhausted = true;
+      state.warning = "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.";
+    } else if (!state.warning) {
+      state.warning = "A IA falhou em pelo menos uma proposta; essas saíram do gerador local.";
+    }
+    return { label, direction: directionLabel, source: "fallback", data: fallback };
+  }
+}
+
+export async function generateProposals(briefing: Briefing) {
+  if (providerOrder().length === 0) {
+    return {
+      proposals: DIRECTIONS.map((direction, index) => ({
+        label: `Proposta ${index + 1}`,
+        direction,
+        source: "fallback" as const,
+        data: generateDeterministic(briefing, index),
+      })),
+      warning: "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.",
+    };
+  }
+
+  const state: GenerateState = {
+    quotaExhausted: false,
+    started: Date.now(),
+    budgetMs: 55_000,
+  };
+
+  // Três propostas em paralelo: o tempo total ≈ a mais lenta, não a soma.
+  const proposals = await Promise.all(
+    DIRECTIONS.map((_, direction) => generateOneProposal(briefing, direction, state)),
+  );
+
+  if (state.warning && proposals.some((item) => item.source === "ai") && /cota gratuita acabou/i.test(state.warning)) {
+    state.warning = "Limite da cota gratuita atingido; parte das propostas usou o gerador local.";
+  }
+
+  return { proposals, warning: state.warning };
 }
 
 export async function rewriteBlock(briefing: Briefing, block: Block, mode: "text" | "style" | "section") {

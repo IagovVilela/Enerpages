@@ -43,9 +43,15 @@ async function readError(response: Response) {
   throw new AiError(body.slice(0, 300) || response.statusText, response.status);
 }
 
+const AI_FETCH_MS = 22_000;
+
+function aiFetch(input: string, init?: RequestInit) {
+  return fetch(input, { ...init, signal: AbortSignal.timeout(AI_FETCH_MS) });
+}
+
 async function completeJson(run: (prompt: string) => Promise<string>, prompt: string, schema: z.ZodType, system?: string) {
   let extra = "";
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     const raw = await run(`${system ? `${system}\n` : ""}${prompt}${extra}`);
     try {
       const parsed = schema.safeParse(extractJson(raw));
@@ -53,6 +59,9 @@ async function completeJson(run: (prompt: string) => Promise<string>, prompt: st
       extra = `\nA resposta anterior é inválida: ${parsed.error.issues.map((issue) => issue.message).slice(0, 6).join("; ")}. Responda apenas JSON válido.`;
     } catch (error) {
       if (error instanceof AiError && error.status !== 422) throw error;
+      if (error instanceof Error && /abort|timeout/i.test(error.message)) {
+        throw new AiError("Tempo esgotado na resposta da IA.", 503);
+      }
       extra = "\nResponda apenas um objeto JSON, sem markdown.";
     }
   }
@@ -67,7 +76,7 @@ function gemini(): AIProvider {
       if (!key) throw new AiError("GEMINI_API_KEY ausente", 401);
       const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
       return completeJson(async (text) => {
-        const response = await fetch(
+        const response = await aiFetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
           {
             method: "POST",
@@ -100,7 +109,7 @@ function groq(): AIProvider {
       const key = process.env.GROQ_API_KEY;
       if (!key) throw new AiError("GROQ_API_KEY ausente", 401);
       return completeJson(async (text) => {
-        const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        const response = await aiFetch("https://api.groq.com/openai/v1/chat/completions", {
           method: "POST",
           headers: {
             authorization: `Bearer ${key}`,
@@ -132,7 +141,7 @@ function openrouter(): AIProvider {
       const key = process.env.OPENROUTER_API_KEY;
       if (!key) throw new AiError("OPENROUTER_API_KEY ausente", 401);
       return completeJson(async (text) => {
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        const response = await aiFetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
             authorization: `Bearer ${key}`,
@@ -162,7 +171,7 @@ function ollama(): AIProvider {
       const base = process.env.OLLAMA_BASE_URL;
       if (!base) throw new AiError("OLLAMA_BASE_URL ausente", 401);
       return completeJson(async (text) => {
-        const response = await fetch(`${base.replace(/\/$/, "")}/api/chat`, {
+        const response = await aiFetch(`${base.replace(/\/$/, "")}/api/chat`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
@@ -228,17 +237,17 @@ export async function generateJSON<T>(prompt: string, schema: z.ZodType<T>, syst
   let lastError: unknown;
   for (const name of names) {
     const provider = factories[name]();
-    let delay = 2000;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    let delay = 800;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const data = await provider.generateJSON(prompt, schema, system);
         return { data, provider: name };
       } catch (error) {
         lastError = error;
         if (!isRetryableError(error)) break;
-        if (attempt < 2) {
+        if (attempt < 1) {
           await sleep(retryDelayMs(error, delay));
-          delay *= 2;
+          delay = Math.min(delay * 2, 8_000);
         }
       }
     }
