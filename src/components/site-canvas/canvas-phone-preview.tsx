@@ -1,6 +1,6 @@
 "use client";
 
-import { CanvasElementView } from "@/components/tenant-canvas-renderer";
+import { canvasContactHref, CanvasElementView } from "@/components/tenant-canvas-renderer";
 import { elementsForArtboard, type SiteCanvasConfig } from "@/lib/canvas/site-canvas";
 import { canvasThemeStyle } from "@/lib/canvas/theme-style";
 
@@ -60,7 +60,7 @@ export function CanvasPhonePreview({
                     ctx={{
                       clientName,
                       homeHref: "/",
-                      contactHref: "#contato",
+                      contactHref: canvasContactHref(canvas.theme),
                       editorChrome: true,
                       interactive: false,
                     }}

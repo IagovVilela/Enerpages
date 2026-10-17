@@ -27,7 +27,7 @@ import {
 import { Badge, Band, Button, CardGrid, Clip, Divider, Panel, Picture, Spacer, Text } from "@/puck/primitives";
 import { defaultPropsMap } from "@/puck/defaults";
 import { ImageControl } from "@/puck/fields";
-import { animationField, featureArray, layoutField, linkField, visibilityField } from "@/puck/field-defs";
+import { actionHrefField, animationField, featureArray, layoutField, linkField, visibilityField } from "@/puck/field-defs";
 import { VARIANTS, type ImageField, type RootProps } from "@/puck/schema";
 import { ThemeProvider } from "@/puck/theme";
 
@@ -104,16 +104,47 @@ const components = withLockPermissions({
   Marquee: { label: "Letreiro", fields: { ...chrome("Marquee"), items: { type: "array", label: "Itens", arrayFields: { label: { type: "text", contentEditable: true } }, getItemSummary: (item: { label?: string }) => item.label || "Item" } }, defaultProps: props.get("Marquee"), render: Marquee },
   Video: { label: "Vídeo", fields: { file: imageField("Arquivo de vídeo"), ...chrome("Video"), title: { type: "text", label: "Título" }, url: { type: "text", label: "Ou cole um link do YouTube ou Vimeo" }, caption: { type: "textarea", label: "Legenda" } }, defaultProps: props.get("Video"), render: Video },
   BeforeAfter: { label: "Antes e depois", fields: { ...chrome("BeforeAfter"), title: { type: "text", label: "Título" }, before: imageField("Antes"), after: imageField("Depois"), beforeLabel: { type: "text", label: "Rótulo antes" }, afterLabel: { type: "text", label: "Rótulo depois" } }, defaultProps: props.get("BeforeAfter"), render: BeforeAfter },
-  Booking: { label: "Agendamento", fields: { ...chrome("Booking"), title: { type: "text", contentEditable: true, label: "Título" }, subtitle: { type: "textarea", label: "Texto" }, href: { type: "text", label: "Link" }, label: { type: "text", label: "Botão" } }, defaultProps: props.get("Booking"), render: Booking },
+  Booking: {
+    label: "Agendamento",
+    fields: {
+      ...chrome("Booking"),
+      title: { type: "text", contentEditable: true, label: "Título" },
+      subtitle: { type: "textarea", label: "Texto" },
+      href: actionHrefField,
+      label: { type: "text", label: "Botão" },
+    },
+    defaultProps: props.get("Booking"),
+    render: Booking,
+  },
   WhatsApp: { label: "WhatsApp", fields: { ...chrome("WhatsApp"), label: { type: "text", label: "Rótulo" }, phone: { type: "text", label: "Telefone" }, message: { type: "textarea", label: "Mensagem" } }, defaultProps: props.get("WhatsApp"), render: WhatsApp },
   Text: { label: "Texto", fields: { ...chrome("Text"), text: { type: "textarea", label: "Texto", contentEditable: true }, align: alignField, fontSize: { type: "number", label: "Tamanho", min: 12, max: 120 } }, defaultProps: props.get("Text"), render: Text },
-  Button: { label: "Botão", fields: { ...chrome("Button"), label: { type: "text", label: "Rótulo", contentEditable: true }, href: { type: "text", label: "Link" }, align: alignField }, defaultProps: props.get("Button"), render: Button },
+  Button: {
+    label: "Botão",
+    fields: {
+      ...chrome("Button"),
+      label: { type: "text", label: "Rótulo", contentEditable: true },
+      href: actionHrefField,
+      align: alignField,
+    },
+    defaultProps: props.get("Button"),
+    render: Button,
+  },
   Badge: { label: "Selo", fields: { ...chrome("Badge"), text: { type: "text", label: "Texto", contentEditable: true }, align: alignField }, defaultProps: props.get("Badge"), render: Badge },
   Divider: { label: "Divisor", fields: { ...chrome("Divider") }, defaultProps: props.get("Divider"), render: Divider },
   Spacer: { label: "Espaço", fields: { ...chrome("Spacer") }, defaultProps: props.get("Spacer"), render: Spacer },
   Panel: { label: "Painel", fields: { ...chrome("Panel"), title: { type: "text", label: "Título", contentEditable: true }, body: { type: "textarea", label: "Texto", contentEditable: true } }, defaultProps: props.get("Panel"), render: Panel },
   CardGrid: { label: "Grade", fields: { ...chrome("CardGrid"), title: { type: "text", label: "Título" }, cards: { type: "array", label: "Cartões", arrayFields: { emoji: { type: "text", label: "Ícone" }, title: { type: "text", label: "Título" }, description: { type: "textarea", label: "Texto" } }, getItemSummary: (item: { title?: string }) => item.title || "Cartão" } }, defaultProps: props.get("CardGrid"), render: CardGrid },
-  Band: { label: "Faixa", fields: { ...chrome("Band"), text: { type: "textarea", label: "Texto", contentEditable: true }, label: { type: "text", label: "Rótulo do link" }, href: { type: "text", label: "Link" } }, defaultProps: props.get("Band"), render: Band },
+  Band: {
+    label: "Faixa",
+    fields: {
+      ...chrome("Band"),
+      text: { type: "textarea", label: "Texto", contentEditable: true },
+      label: { type: "text", label: "Rótulo do link" },
+      href: actionHrefField,
+    },
+    defaultProps: props.get("Band"),
+    render: Band,
+  },
   Picture: { label: "Imagem", fields: { image: imageField("Imagem"), ...chrome("Picture"), zoom: { type: "number", label: "Zoom", min: 1, max: 3, step: 0.1 }, posX: { type: "number", label: "Enquadramento horizontal", min: 0, max: 100 }, posY: { type: "number", label: "Enquadramento vertical", min: 0, max: 100 }, caption: { type: "text", label: "Legenda" } }, defaultProps: props.get("Picture"), render: Picture },
   Clip: { label: "Mídia", fields: { file: imageField("Imagem ou vídeo"), ...chrome("Clip"), zoom: { type: "number", label: "Zoom", min: 1, max: 3, step: 0.1 }, posX: { type: "number", label: "Enquadramento horizontal", min: 0, max: 100 }, posY: { type: "number", label: "Enquadramento vertical", min: 0, max: 100 }, caption: { type: "text", label: "Legenda" } }, defaultProps: props.get("Clip"), render: Clip },
 });

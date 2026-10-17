@@ -95,9 +95,18 @@ export const linkField = (label: string) => ({
   label,
   objectFields: {
     label: { type: "text" as const, label: "Texto", contentEditable: true },
-    href: { type: "text" as const, label: "Link" },
+    href: {
+      type: "text" as const,
+      label: "Link (URL, #âncora ou vazio = WhatsApp do tema)",
+    },
   },
 });
+
+/** Campo de link para botões / faixas de ação. */
+export const actionHrefField = {
+  type: "text" as const,
+  label: "Link (URL, #âncora ou vazio = WhatsApp do tema)",
+};
 
 export const featureArray = {
   type: "array" as const,

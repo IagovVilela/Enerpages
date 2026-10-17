@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { whatsappHref } from "@/lib/action-href";
 import { isCanvasVideoUrl } from "@/lib/canvas/media";
 import {
   elementsForArtboard,
@@ -50,9 +51,15 @@ type Ctx = {
 
 function resolveHref(href: string | undefined, contactHref: string, homeHref: string) {
   const h = href?.trim();
-  if (!h || h === "book" || h === "contact") return contactHref;
+  if (!h || h === "#" || h === "book" || h === "contact" || h === "whatsapp") return contactHref || "#contato";
   if (h === "home") return homeHref;
   return h;
+}
+
+export function canvasContactHref(theme: SiteCanvasConfig["theme"] | undefined) {
+  const phone = theme?.whatsappPhone?.trim();
+  if (!phone) return "#contato";
+  return whatsappHref(phone, theme?.whatsappMessage || "") || "#contato";
 }
 
 function frameStyle(el: CanvasElement, board: { width: number; height: number }): React.CSSProperties {
@@ -351,7 +358,7 @@ export function TenantCanvasRenderer({
   const ctx: Ctx = {
     clientName,
     homeHref: "/",
-    contactHref: "#contato",
+    contactHref: canvasContactHref(canvas.theme),
     editorChrome,
     interactive,
   };

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { SiteView } from "@/app/(public)/site/slug/[slug]/page";
 import { prisma } from "@/lib/db";
 import { readPreview } from "@/lib/preview";
@@ -17,6 +18,7 @@ export default function PreviewPage({ params }: { params: Promise<{ token: strin
 }
 
 async function PreviewBody({ params }: { params: Promise<{ token: string }> }) {
+  await connection();
   const { token } = await params;
   const pageId = readPreview(token);
   if (!pageId) notFound();

@@ -20,7 +20,8 @@ function resolveNext(prev: SiteCanvasConfig, updater: SetStateAction<SiteCanvasC
 
 export function useCanvasHistory(initial: SiteCanvasConfig) {
   const [canvas, setCanvasState] = useState(initial);
-  const [historyTick, setHistoryTick] = useState(0);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   const presentRef = useRef(canvas);
   const pastRef = useRef<SiteCanvasConfig[]>([]);
@@ -33,7 +34,10 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
     presentRef.current = canvas;
   }, [canvas]);
 
-  const bump = useCallback(() => setHistoryTick((n) => n + 1), []);
+  const syncFlags = useCallback(() => {
+    setCanUndo(pastRef.current.length > 0);
+    setCanRedo(futureRef.current.length > 0);
+  }, []);
 
   const clearCoalesceTimer = useCallback(() => {
     if (coalesceTimerRef.current) {
@@ -47,9 +51,9 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
       pastRef.current.push(snapshot);
       if (pastRef.current.length > MAX_HISTORY) pastRef.current.shift();
       futureRef.current = [];
-      bump();
+      syncFlags();
     },
-    [bump],
+    [syncFlags],
   );
 
   const flushCoalesce = useCallback(() => {
@@ -72,9 +76,12 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
   const endInteraction = useCallback(() => {
     const baseline = gestureBaselineRef.current;
     gestureBaselineRef.current = null;
-    if (baseline && !sameCanvas(baseline, presentRef.current)) {
-      pushPast(baseline);
-    }
+    // presentRef may lag one frame behind the last setCanvas during drag — prefer live state via flush on next tick
+    queuePromise.resolve().then(() => {
+      if (baseline && !sameCanvas(baseline, presentRef.current)) {
+        pushPast(baseline);
+      }
+    });
   }, [pushPast]);
 
   const setCanvas = useCallback(
@@ -82,12 +89,18 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
       setCanvasState((prev) => {
         const next = resolveNext(prev, updater);
         if (sameCanvas(next, prev)) return prev;
-        if (gestureBaselineRef.current) return next;
+        if (gestureBaselineRef.current) {
+          presentRef.current = next;
+          return next;
+        }
         if (!coalesceBaselineRef.current) {
           coalesceBaselineRef.current = cloneCanvas(prev);
         }
         clearCoalesceTimer();
-        coalesceTimerRef.current = setTimeout(() => flushCoalesce(), COALESCE_MS);
+        coalesceTimerRef.current = setTimeout(() => {
+          flushCoalesce();
+        }, COALESCE_MS);
+        presentRef.current = next;
         return next;
       });
     },
@@ -101,7 +114,11 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
       setCanvasState((prev) => {
         const next = resolveNext(prev, updater);
         if (sameCanvas(next, prev)) return prev;
-        pushPast(cloneCanvas(prev));
+        const snapshot = cloneCanvas(prev);
+        presentRef.current = next;
+        queuePromise.resolve().then(() => {
+          pushPast(snapshot);
+        });
         return next;
       });
     },
@@ -115,35 +132,42 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
       gestureBaselineRef.current = null;
       pastRef.current = [];
       futureRef.current = [];
+      presentRef.current = next;
       setCanvasState(next);
-      bump();
+      syncFlags();
     },
-    [bump, clearCoalesceTimer],
+    [clearCoalesceTimer, syncFlags],
   );
 
   const undo = useCallback(() => {
     flushCoalesce();
     gestureBaselineRef.current = null;
     const previous = pastRef.current.pop();
-    if (!previous) return;
+    if (!previous) {
+      syncFlags();
+      return;
+    }
     futureRef.current.push(cloneCanvas(presentRef.current));
+    presentRef.current = previous;
     setCanvasState(previous);
-    bump();
-  }, [bump, flushCoalesce]);
+    syncFlags();
+  }, [flushCoalesce, syncFlags]);
 
   const redo = useCallback(() => {
     flushCoalesce();
     gestureBaselineRef.current = null;
     const next = futureRef.current.pop();
-    if (!next) return;
+    if (!next) {
+      syncFlags();
+      return;
+    }
     pastRef.current.push(cloneCanvas(presentRef.current));
+    presentRef.current = next;
     setCanvasState(next);
-    bump();
-  }, [bump, flushCoalesce]);
+    syncFlags();
+  }, [flushCoalesce, syncFlags]);
 
   useEffect(() => () => clearCoalesceTimer(), [clearCoalesceTimer]);
-
-  void historyTick;
 
   return {
     canvas,
@@ -154,7 +178,7 @@ export function useCanvasHistory(initial: SiteCanvasConfig) {
     endInteraction,
     undo,
     redo,
-    canUndo: pastRef.current.length > 0,
-    canRedo: futureRef.current.length > 0,
+    canUndo,
+    canRedo,
   };
 }

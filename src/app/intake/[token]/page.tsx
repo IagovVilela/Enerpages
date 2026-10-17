@@ -1,13 +1,28 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { BrandMark } from "@/components/brand-mark";
 import { IntakeWizard } from "@/components/intake-wizard";
 import { prisma } from "@/lib/db";
 import { emptyIntake } from "@/lib/intake/schema";
 import { SEGMENTS } from "@/puck/schema";
 
-export const instant = false;
+export default function IntakePage({ params }: { params: Promise<{ token: string }> }) {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-svh bg-[var(--studio-bg)] px-4 py-10 text-[var(--studio-ink)]">
+          <p className="mx-auto max-w-3xl text-sm text-neutral-600">Carregando formulário…</p>
+        </main>
+      }
+    >
+      <IntakeBody params={params} />
+    </Suspense>
+  );
+}
 
-export default async function IntakePage({ params }: { params: Promise<{ token: string }> }) {
+async function IntakeBody({ params }: { params: Promise<{ token: string }> }) {
+  await connection();
   const { token } = await params;
   const invite = await prisma.intakeInvite.findUnique({
     where: { token },

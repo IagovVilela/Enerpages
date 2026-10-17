@@ -8,7 +8,7 @@ import {
 } from "@/components/site-canvas/canvas-onboarding";
 import { CanvasLayersPanel } from "@/components/site-canvas/canvas-layers-panel";
 import { CanvasPhonePreview } from "@/components/site-canvas/canvas-phone-preview";
-import { CanvasElementView } from "@/components/tenant-canvas-renderer";
+import { canvasContactHref, CanvasElementView } from "@/components/tenant-canvas-renderer";
 import { CANVAS_BG_ART_OPTIONS } from "@/lib/canvas/bg-art";
 import { snapFrameToGrid, snapFrameWithSmartGuides, type SmartGuide } from "@/lib/canvas/layout-grid";
 import { CANVAS_MEDIA_ACCEPT } from "@/lib/canvas/media";
@@ -286,6 +286,29 @@ export function SiteCanvasEditor({
     };
   }, [board, els, endInteraction, markDirty, setCanvas, zoom]);
 
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+        return;
+      }
+      const mod = event.ctrlKey || event.metaKey;
+      if (!mod) return;
+      const key = event.key.toLowerCase();
+      if (key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+        return;
+      }
+      if (key === "y" || (key === "z" && event.shiftKey)) {
+        event.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
+
   async function save() {
     setBusy(true);
     const result = await onSave(canvas);
@@ -348,10 +371,22 @@ export function SiteCanvasEditor({
         >
           Copiar desktop → mobile
         </button>
-        <button type="button" className="border bg-white px-2 py-1 disabled:opacity-40" disabled={!canUndo} onClick={undo}>
+        <button
+          type="button"
+          className="border bg-white px-2 py-1 disabled:opacity-40"
+          disabled={!canUndo}
+          onClick={undo}
+          title="Desfazer (Ctrl+Z)"
+        >
           Desfazer
         </button>
-        <button type="button" className="border bg-white px-2 py-1 disabled:opacity-40" disabled={!canRedo} onClick={redo}>
+        <button
+          type="button"
+          className="border bg-white px-2 py-1 disabled:opacity-40"
+          disabled={!canRedo}
+          onClick={redo}
+          title="Refazer (Ctrl+Y)"
+        >
           Refazer
         </button>
         <button type="button" className="border bg-white px-2 py-1" onClick={() => setTemplatesOpen(true)}>
@@ -480,75 +515,87 @@ export function SiteCanvasEditor({
           </div>
         </aside>
 
-        <section className="relative overflow-auto bg-[#ddd6c8] p-6" onPointerDown={() => setSelectedId(null)}>
+        <section
+          className="relative flex min-h-0 justify-center overflow-auto bg-[#ddd6c8] p-6"
+          onPointerDown={() => setSelectedId(null)}
+        >
           <div
-            ref={stageRef}
-            className="relative mx-auto origin-top shadow-lg"
+            className="relative shrink-0"
             style={{
-              width: board.width,
-              height: board.height,
-              transform: `scale(${zoom})`,
-              ...canvasThemeStyle(canvas.theme),
+              width: board.width * zoom,
+              height: board.height * zoom,
             }}
-            onPointerDown={(e) => e.stopPropagation()}
           >
             <div
-              className="pointer-events-none absolute inset-0 opacity-30"
+              ref={stageRef}
+              className="absolute top-0 left-0 shadow-lg"
               style={{
-                backgroundImage:
-                  "linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px)",
-                backgroundSize: "8px 8px",
+                width: board.width,
+                height: board.height,
+                transform: `scale(${zoom})`,
+                transformOrigin: "top left",
+                ...canvasThemeStyle(canvas.theme),
               }}
-            />
-            {els.map((el) => (
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <div
-                key={el.id}
-                className="absolute"
-                style={{ left: el.frame.x, top: el.frame.y, width: el.frame.w, height: el.frame.h, zIndex: el.zIndex }}
-              >
+                className="pointer-events-none absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    "linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px)",
+                  backgroundSize: "8px 8px",
+                }}
+              />
+              {els.map((el) => (
                 <div
-                  className={cn(
-                    "absolute inset-0 cursor-move",
-                    selectedId === el.id ? "ring-2 ring-[var(--studio-accent)]" : "hover:ring-1 hover:ring-black/30",
-                  )}
-                  onPointerDown={(e) => onPointerDown(e, el, "move")}
+                  key={el.id}
+                  className="absolute"
+                  style={{ left: el.frame.x, top: el.frame.y, width: el.frame.w, height: el.frame.h, zIndex: el.zIndex }}
                 >
-                  <CanvasElementView
-                    element={{ ...el, frame: { x: 0, y: 0, w: el.frame.w, h: el.frame.h } }}
-                    board={{ width: el.frame.w || 1, height: el.frame.h || 1 }}
-                    ctx={{
-                      clientName,
-                      homeHref: "/",
-                      contactHref: "#contato",
-                      editorChrome: true,
-                      interactive: false,
-                    }}
-                    layout="fill"
-                  />
+                  <div
+                    className={cn(
+                      "absolute inset-0 cursor-move",
+                      selectedId === el.id ? "ring-2 ring-[var(--studio-accent)]" : "hover:ring-1 hover:ring-black/30",
+                    )}
+                    onPointerDown={(e) => onPointerDown(e, el, "move")}
+                  >
+                    <CanvasElementView
+                      element={{ ...el, frame: { x: 0, y: 0, w: el.frame.w, h: el.frame.h } }}
+                      board={{ width: el.frame.w || 1, height: el.frame.h || 1 }}
+                      ctx={{
+                        clientName,
+                        homeHref: "/",
+                        contactHref: canvasContactHref(canvas.theme),
+                        editorChrome: true,
+                        interactive: false,
+                      }}
+                      layout="fill"
+                    />
+                  </div>
+                  {selectedId === el.id && !el.locked
+                    ? (["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((handle) => (
+                        <span
+                          key={handle}
+                          className="absolute h-2.5 w-2.5 bg-[var(--studio-accent)]"
+                          style={{
+                            left: handle.includes("w") ? -4 : handle.includes("e") ? "calc(100% - 6px)" : "calc(50% - 5px)",
+                            top: handle.includes("n") ? -4 : handle.includes("s") ? "calc(100% - 6px)" : "calc(50% - 5px)",
+                            cursor: `${handle}-resize`,
+                          }}
+                          onPointerDown={(e) => onPointerDown(e, el, "resize", handle)}
+                        />
+                      ))
+                    : null}
                 </div>
-                {selectedId === el.id && !el.locked
-                  ? (["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const).map((handle) => (
-                      <span
-                        key={handle}
-                        className="absolute h-2.5 w-2.5 bg-[var(--studio-accent)]"
-                        style={{
-                          left: handle.includes("w") ? -4 : handle.includes("e") ? "calc(100% - 6px)" : "calc(50% - 5px)",
-                          top: handle.includes("n") ? -4 : handle.includes("s") ? "calc(100% - 6px)" : "calc(50% - 5px)",
-                          cursor: `${handle}-resize`,
-                        }}
-                        onPointerDown={(e) => onPointerDown(e, el, "resize", handle)}
-                      />
-                    ))
-                  : null}
-              </div>
-            ))}
-            {guides.map((g, i) =>
-              g.axis === "v" ? (
-                <div key={i} className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#ec4899]" style={{ left: g.pos }} />
-              ) : (
-                <div key={i} className="pointer-events-none absolute left-0 right-0 h-px bg-[#ec4899]" style={{ top: g.pos }} />
-              ),
-            )}
+              ))}
+              {guides.map((g, i) =>
+                g.axis === "v" ? (
+                  <div key={i} className="pointer-events-none absolute top-0 bottom-0 w-px bg-[#ec4899]" style={{ left: g.pos }} />
+                ) : (
+                  <div key={i} className="pointer-events-none absolute left-0 right-0 h-px bg-[#ec4899]" style={{ top: g.pos }} />
+                ),
+              )}
+            </div>
           </div>
         </section>
 
@@ -630,6 +677,57 @@ export function SiteCanvasEditor({
                     onChange={(e) => updateElement(selected.id, { props: { text: e.target.value } })}
                   />
                 </label>
+              ) : null}
+              {selected.type === "button" || selected.type === "hero" ? (
+                <div className="grid gap-2 rounded border border-[var(--studio-line)] p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Ação / link</p>
+                  {selected.type === "hero" ? (
+                    <label className="grid gap-1">
+                      Texto do botão
+                      <input
+                        className="border px-2 py-1"
+                        value={selected.props?.ctaLabel || ""}
+                        onChange={(e) => updateElement(selected.id, { props: { ctaLabel: e.target.value } })}
+                        placeholder="Falar conosco"
+                      />
+                    </label>
+                  ) : null}
+                  <label className="grid gap-1">
+                    Link de destino
+                    <input
+                      className="border px-2 py-1"
+                      value={selected.props?.href || ""}
+                      onChange={(e) => updateElement(selected.id, { props: { href: e.target.value } })}
+                      placeholder="https://wa.me/55… ou #contato"
+                    />
+                  </label>
+                  <p className="text-[11px] text-neutral-500">
+                    Cole um URL (WhatsApp, site, formulário) ou deixe vazio / escreva <code>whatsapp</code> para usar o número do tema.
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      className="border px-2 py-1 text-xs"
+                      onClick={() => updateElement(selected.id, { props: { href: "whatsapp" } }, true)}
+                    >
+                      WhatsApp do tema
+                    </button>
+                    <button
+                      type="button"
+                      className="border px-2 py-1 text-xs"
+                      onClick={() => updateElement(selected.id, { props: { href: "#contato" } }, true)}
+                    >
+                      #contato
+                    </button>
+                    <button
+                      type="button"
+                      className="border px-2 py-1 text-xs"
+                      onClick={() => updateElement(selected.id, { props: { href: "https://wa.me/" } }, true)}
+                    >
+                      wa.me/
+                    </button>
+                  </div>
+                </div>
               ) : null}
               {selected.type === "hero" ||
               selected.type === "panel" ||
@@ -747,6 +845,41 @@ export function SiteCanvasEditor({
                   ))}
                 </select>
               </label>
+              <div className="mt-2 grid gap-2 border-t border-[var(--studio-line)] pt-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">WhatsApp da página</p>
+                <label className="grid gap-1">
+                  Telefone (com DDI)
+                  <input
+                    className="border px-2 py-1"
+                    placeholder="5511999999999"
+                    value={canvas.theme?.whatsappPhone || ""}
+                    onChange={(e) => {
+                      commitCanvas((prev) =>
+                        applyThemeChangeToCanvas(prev, { ...prev.theme, whatsappPhone: e.target.value }),
+                      );
+                      markDirty();
+                    }}
+                  />
+                </label>
+                <label className="grid gap-1">
+                  Mensagem padrão
+                  <textarea
+                    className="border px-2 py-1"
+                    rows={2}
+                    placeholder="Olá! Vim pelo site."
+                    value={canvas.theme?.whatsappMessage || ""}
+                    onChange={(e) => {
+                      commitCanvas((prev) =>
+                        applyThemeChangeToCanvas(prev, { ...prev.theme, whatsappMessage: e.target.value }),
+                      );
+                      markDirty();
+                    }}
+                  />
+                </label>
+                <p className="text-[11px] text-neutral-500">
+                  Botões com link vazio ou &quot;whatsapp&quot; abrem esta conversa.
+                </p>
+              </div>
             </div>
           )}
         </aside>

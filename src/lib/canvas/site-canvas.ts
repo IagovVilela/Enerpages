@@ -58,6 +58,9 @@ const themeSchema = z.object({
   fontBody: z.string().trim().max(80).optional(),
   radius: z.enum(["sm", "md", "lg"]).optional(),
   motion: z.enum(["off", "subtle", "full"]).optional(),
+  /** Telefone WhatsApp (só dígitos ou com máscara) — usado por botões com link vazio / "whatsapp". */
+  whatsappPhone: z.string().trim().max(40).optional(),
+  whatsappMessage: z.string().trim().max(300).optional(),
 });
 
 const frameSchema = z.object({

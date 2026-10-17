@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { MotionPreset } from "@/puck/motion";
 import { isExternalHref, resolveActionHref } from "@/lib/action-href";

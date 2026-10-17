@@ -1,6 +1,7 @@
 import type { IntakeStatus } from "@prisma/client";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { IntakeDetailActions } from "@/components/intake-detail-actions";
 import { prisma } from "@/lib/db";
@@ -16,6 +17,7 @@ export default function IntakeDetailPage({ params }: { params: Promise<{ id: str
 }
 
 async function IntakeDetail({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const { id } = await params;
   const invite = await prisma.intakeInvite.findUnique({
     where: { id },
