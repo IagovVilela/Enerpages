@@ -6,7 +6,12 @@ BEGIN
 END
 $$;
 
-GRANT CONNECT ON DATABASE enerpages TO enerpages_public;
+DO $$
+BEGIN
+  EXECUTE format('GRANT CONNECT ON DATABASE %I TO enerpages_public', current_database());
+END
+$$;
+
 GRANT USAGE ON SCHEMA public TO enerpages_public;
 
 ALTER TABLE "Page" ENABLE ROW LEVEL SECURITY;
@@ -29,6 +34,8 @@ SELECT
   "clientName",
   segment,
   "publishedData",
+  "canvasPublished",
+  "publishEngine",
   "publishedAt",
   "seoTitle",
   "seoDescription",

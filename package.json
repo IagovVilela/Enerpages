@@ -12,7 +12,7 @@
     "test:e2e": "playwright test",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:migrate:deploy": "prisma db push && tsx prisma/seed.ts",
+    "db:migrate:deploy": "prisma db push && prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma && tsx prisma/seed.ts",
     "db:reset-admin": "node scripts/reset-admin-password.mjs",
     "db:setup": "prisma db push && prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma && tsx prisma/seed.ts",
     "brand:extract": "node scripts/extract-brand-assets.mjs"

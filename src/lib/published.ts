@@ -38,44 +38,73 @@ type PublishedRow = {
   archetype: string | null;
 };
 
+function isMissingRelation(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const meta = "meta" in error ? (error as { meta?: { code?: string; message?: string } }).meta : undefined;
+  const message = "message" in error ? String((error as { message?: unknown }).message) : "";
+  return (
+    meta?.code === "42P01" ||
+    /relation .* does not exist/i.test(meta?.message || "") ||
+    /relation .* does not exist/i.test(message)
+  );
+}
+
+async function readStateFromAdmin(where: { slug?: string; host?: string }): Promise<StateRow | null> {
+  const page = where.slug
+    ? await prisma.page.findUnique({ where: { slug: where.slug } })
+    : await prisma.page.findUnique({ where: { customDomain: where.host } });
+  if (!page) return null;
+  return { slug: page.slug, status: page.status, customDomain: page.customDomain, clientName: page.clientName };
+}
+
+async function readPublishedFromAdmin(slug: string): Promise<PublishedRow | null> {
+  const page = await prisma.page.findFirst({ where: { slug, status: "PUBLISHED" } });
+  if (!page) return null;
+  return {
+    id: page.id,
+    slug: page.slug,
+    customDomain: page.customDomain,
+    clientName: page.clientName,
+    segment: page.segment,
+    publishedData: page.publishedData,
+    canvasPublished: page.canvasPublished,
+    publishEngine: page.publishEngine,
+    seoTitle: page.seoTitle,
+    seoDescription: page.seoDescription,
+    archetype: page.archetype,
+  };
+}
+
 async function readState(where: { slug?: string; host?: string }): Promise<StateRow | null> {
   if (!process.env.DATABASE_URL_PUBLIC) {
-    const page = where.slug
-      ? await prisma.page.findUnique({ where: { slug: where.slug } })
-      : await prisma.page.findUnique({ where: { customDomain: where.host } });
-    if (!page) return null;
-    return { slug: page.slug, status: page.status, customDomain: page.customDomain, clientName: page.clientName };
+    return readStateFromAdmin(where);
   }
-  const rows = where.slug
-    ? await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE slug = ${where.slug} LIMIT 1`
-    : await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE "customDomain" = ${where.host} LIMIT 1`;
-  return rows[0] ?? null;
+  try {
+    const rows = where.slug
+      ? await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE slug = ${where.slug} LIMIT 1`
+      : await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE "customDomain" = ${where.host} LIMIT 1`;
+    return rows[0] ?? null;
+  } catch (error) {
+    if (!isMissingRelation(error)) throw error;
+    return readStateFromAdmin(where);
+  }
 }
 
 async function readPublished(slug: string): Promise<PublishedRow | null> {
   if (!process.env.DATABASE_URL_PUBLIC) {
-    const page = await prisma.page.findFirst({ where: { slug, status: "PUBLISHED" } });
-    if (!page) return null;
-    return {
-      id: page.id,
-      slug: page.slug,
-      customDomain: page.customDomain,
-      clientName: page.clientName,
-      segment: page.segment,
-      publishedData: page.publishedData,
-      canvasPublished: page.canvasPublished,
-      publishEngine: page.publishEngine,
-      seoTitle: page.seoTitle,
-      seoDescription: page.seoDescription,
-      archetype: page.archetype,
-    };
+    return readPublishedFromAdmin(slug);
   }
-  const rows = await prismaPublic.$queryRaw<PublishedRow[]>`
-    SELECT id, slug, "customDomain", "clientName", segment, "publishedData", "canvasPublished",
-           "publishEngine"::text as "publishEngine", "seoTitle", "seoDescription", archetype
-    FROM "PublishedPage" WHERE slug = ${slug} LIMIT 1
-  `;
-  return rows[0] ?? null;
+  try {
+    const rows = await prismaPublic.$queryRaw<PublishedRow[]>`
+      SELECT id, slug, "customDomain", "clientName", segment, "publishedData", "canvasPublished",
+             "publishEngine"::text as "publishEngine", "seoTitle", "seoDescription", archetype
+      FROM "PublishedPage" WHERE slug = ${slug} LIMIT 1
+    `;
+    return rows[0] ?? null;
+  } catch (error) {
+    if (!isMissingRelation(error)) throw error;
+    return readPublishedFromAdmin(slug);
+  }
 }
 
 export async function loadPublicPage(where: { slug?: string; host?: string }): Promise<PublicPage | null> {
