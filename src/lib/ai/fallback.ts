@@ -44,6 +44,7 @@ function chrome(type: BlockType, seed: number, preset: PropsOf<"Hero">["animatio
       ...defaultAnimation(preset),
       delay: (seed % 4) * 0.05,
     },
+    locked: false,
     variant: pick(VARIANTS[type], seed),
   };
 }

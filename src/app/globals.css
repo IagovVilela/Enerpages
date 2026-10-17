@@ -137,3 +137,15 @@ body:has(.landing) {
 .studio-puck header {
   border-color: var(--studio-line) !important;
 }
+
+/* Mobile: canvas livre + dock inferior (sheets), sem forçar 3 colunas */
+@media (max-width: 1023px) {
+  .studio-puck [class*="PuckLayout"] [class*="leftSideBar"],
+  .studio-puck [class*="PuckLayout"] [class*="rightSideBar"] {
+    /* Preferimos o dock; se o usuário reabrir via Mais, o painel volta */
+  }
+
+  .studio-puck .studio-mobile-dock {
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+  }
+}

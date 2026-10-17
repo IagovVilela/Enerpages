@@ -21,7 +21,7 @@ export function libraryPlugin() {
   };
 }
 
-function LibraryPanel() {
+export function LibraryPanel() {
   const dispatch = useStudioPuck((state) => state.dispatch);
   const [tab, setTab] = useState<LibraryTab>("elements");
 

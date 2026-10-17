@@ -8,25 +8,56 @@ import { applyPageTemplate, publishPage, restoreVersion, saveDraft, unpublishPag
 import { PageTemplatePicker } from "@/components/page-template-picker";
 import { libraryPlugin } from "@/components/studio-library";
 import { layersPlugin } from "@/components/studio-layers";
+import { StudioMobileChrome } from "@/components/studio-mobile-chrome";
+import {
+  hasSeenStudioOnboarding,
+  markStudioOnboardingSeen,
+  StudioOnboarding,
+} from "@/components/studio-onboarding";
 import { StudioPhonePreview } from "@/components/studio-phone-preview";
+import { themePlugin } from "@/components/studio-theme-panel";
+import { StudioUiProvider, useStudioUi } from "@/components/studio-ui-context";
 import { config, puckDictionary } from "@/puck/config";
-import { BG_ART_OPTIONS, bgArtStyle } from "@/puck/bg-art";
 import type { PageTemplateId } from "@/puck/page-templates";
-import { FONT_BY_PERSONALITY, STYLE_BY_PERSONALITY } from "@/lib/ai/archetypes";
-import { TYPOGRAPHY_PRESETS } from "@/puck/section-presets";
-import { BODY_FONTS, DISPLAY_FONTS, PERSONALITIES, type PageDocument, type Theme } from "@/puck/schema";
+import { copyTextToClipboard, downloadPublicQrPng } from "@/lib/studio-share";
+import type { PageDocument } from "@/puck/schema";
 import { useStudioPuck } from "@/puck/use-studio-puck";
 import { cn } from "@/lib/cn";
 
 type Version = { id: string; version: number; label: string | null; source: string; createdAt: string };
 
-export function StudioEditor({
+export function StudioEditor(props: {
+  pageId: string;
+  clientName: string;
+  slug: string;
+  segment: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  previewUrl: string;
+  publicUrl: string;
+  initial: PageDocument;
+  versions: Version[];
+}) {
+  const [liveStatus, setLiveStatus] = useState(props.status);
+  useEffect(() => {
+    setLiveStatus(props.status);
+  }, [props.status]);
+
+  return (
+    <StudioUiProvider publicUrl={props.publicUrl} isPublished={liveStatus === "PUBLISHED"}>
+      <StudioEditorInner {...props} pageStatus={liveStatus} onPageStatusChange={setLiveStatus} />
+    </StudioUiProvider>
+  );
+}
+
+function StudioEditorInner({
   pageId,
   clientName,
   slug,
   segment,
-  status: pageStatus,
+  pageStatus,
+  onPageStatusChange,
   previewUrl,
+  publicUrl,
   initial,
   versions,
 }: {
@@ -34,12 +65,15 @@ export function StudioEditor({
   clientName: string;
   slug: string;
   segment: string;
-  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  pageStatus: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  onPageStatusChange: (status: "DRAFT" | "PUBLISHED" | "ARCHIVED") => void;
   previewUrl: string;
+  publicUrl: string;
   initial: PageDocument;
   versions: Version[];
 }) {
   const router = useRouter();
+  const { toast, confirm } = useStudioUi();
   const [status, setStatus] = useState(pageStatus === "PUBLISHED" ? "No ar" : "Pronto");
   const [dirty, setDirty] = useState(false);
   const [message, setMessage] = useState("");
@@ -50,6 +84,8 @@ export function StudioEditor({
   const [confirmTemplate, setConfirmTemplate] = useState<PageTemplateId | null>(null);
   const [busyTemplate, setBusyTemplate] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [mobileThemeHint, setMobileThemeHint] = useState(false);
   const latest = useRef<Data>(initial as Data);
   const skip = useRef(true);
 
@@ -57,6 +93,10 @@ export function StudioEditor({
     setDocument(initial);
     latest.current = initial as Data;
   }, [initial]);
+
+  useEffect(() => {
+    setOnboardingOpen(!hasSeenStudioOnboarding());
+  }, []);
 
   useEffect(() => {
     if (skip.current) {
@@ -119,8 +159,24 @@ export function StudioEditor({
     router.refresh();
   }
 
+  async function publishLatest() {
+    setStatus("Publicando…");
+    const result = await publishPage(pageId, latest.current);
+    if (result.ok) {
+      setDirty(false);
+      onPageStatusChange("PUBLISHED");
+      setStatus("No ar");
+      setMessage("Alterações no ar — o site público já mostra isso.");
+      toast("No ar — use Ver site ou Copiar link.");
+      router.refresh();
+      return true;
+    }
+    setStatus(result.error);
+    return false;
+  }
+
   return (
-    <div className="studio-puck h-[calc(100vh-3.5rem)]">
+    <div className="studio-puck relative h-[calc(100vh-3.5rem)] max-lg:pb-[4.25rem]">
       <Puck
         key={editorKey}
         config={config}
@@ -143,37 +199,86 @@ export function StudioEditor({
               pageStatus={pageStatus}
               versions={versions}
               pageId={pageId}
+              slug={slug}
+              publicUrl={publicUrl}
               onOpenTemplates={() => setTemplatesOpen(true)}
               onOpenPhone={() => setPhoneOpen(true)}
               onRestore={() => router.refresh()}
               onUnpublish={async () => {
+                const ok = await confirm({
+                  title: "Despublicar a página?",
+                  description: "O site público deixa de mostrar o conteúdo publicado até você publicar de novo.",
+                  confirmLabel: "Despublicar",
+                  danger: true,
+                });
+                if (!ok) return;
                 await unpublishPage(pageId);
+                onPageStatusChange("DRAFT");
                 setMessage("Página despublicada.");
                 setStatus("Rascunho");
+                toast("Página fora do ar.");
                 router.refresh();
               }}
               publishSlot={children}
             />
+          ),
+          actionBar: ({ children, parentAction, label }) => (
+            <ActionBarWithDeleteConfirm parentAction={parentAction} label={label}>
+              {children}
+            </ActionBarWithDeleteConfirm>
+          ),
+          preview: ({ children }) => (
+            <>
+              {children}
+              <StudioMobileChrome
+                slug={slug}
+                publicUrl={publicUrl}
+                pageStatus={pageStatus}
+                onOpenTemplates={() => setTemplatesOpen(true)}
+                onOpenPhone={() => setPhoneOpen(true)}
+              />
+              {mobileThemeHint ? (
+                <OpenThemeOnce
+                  onDone={() => {
+                    setMobileThemeHint(false);
+                    toast("Painel Tema aberto na barra lateral.");
+                  }}
+                />
+              ) : null}
+            </>
           ),
         }}
         onChange={(data) => {
           latest.current = data;
           setTick((value) => value + 1);
         }}
-        onPublish={async (data) => {
-          setStatus("Publicando…");
-          const result = await publishPage(pageId, data);
-          if (result.ok) {
-            setDirty(false);
-            setStatus("No ar");
-            setMessage("Alterações no ar — o site público já mostra isso.");
-            router.refresh();
-          } else {
-            setStatus(result.error);
-          }
+        onPublish={async () => {
+          await publishLatest();
         }}
       />
-      {message ? <p className="border-t border-[var(--studio-line)] px-4 py-2 text-sm">{message}</p> : null}
+      {message ? (
+        <p className="border-t border-[var(--studio-line)] px-4 py-2 text-sm">
+          {message}
+          {pageStatus === "PUBLISHED" ? (
+            <>
+              {" "}
+              <a className="underline" href={publicUrl} target="_blank" rel="noreferrer">
+                Ver site
+              </a>
+              {" · "}
+              <button
+                type="button"
+                className="underline"
+                onClick={() =>
+                  void copyTextToClipboard(publicUrl).then((ok) => toast(ok ? "Link do site copiado." : "Não foi possível copiar."))
+                }
+              >
+                Copiar link
+              </button>
+            </>
+          ) : null}
+        </p>
+      ) : null}
 
       <PageTemplatePicker
         open={templatesOpen && !confirmTemplate}
@@ -210,8 +315,56 @@ export function StudioEditor({
       ) : null}
 
       <StudioPhonePreview open={phoneOpen} url={previewUrl} onClose={() => setPhoneOpen(false)} />
+
+      <StudioOnboarding
+        open={onboardingOpen}
+        busy={busyTemplate}
+        publicUrl={publicUrl}
+        onSkip={() => {
+          markStudioOnboardingSeen();
+          setOnboardingOpen(false);
+        }}
+        onPickTemplate={(id) => {
+          void doApplyTemplate(id);
+        }}
+        onOpenTheme={() => {
+          markStudioOnboardingSeen();
+          setOnboardingOpen(false);
+          if (typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+            toast("Toque em Tema no dock inferior para ajustar cores e tipografia.");
+          } else {
+            setMobileThemeHint(true);
+          }
+        }}
+        onPublish={() => {
+          void (async () => {
+            const ok = await publishLatest();
+            markStudioOnboardingSeen();
+            setOnboardingOpen(false);
+            if (ok) window.open(publicUrl, "_blank", "noopener,noreferrer");
+          })();
+        }}
+      />
     </div>
   );
+}
+
+function OpenThemeOnce({ onDone }: { onDone: () => void }) {
+  const dispatch = useStudioPuck((state) => state.dispatch);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    dispatch({
+      type: "setUi",
+      ui: {
+        leftSideBarVisible: true,
+        rightSideBarVisible: false,
+        plugin: { current: "tema" },
+      },
+    });
+    done.current();
+  }, [dispatch]);
+  return null;
 }
 
 function HeaderChrome({
@@ -220,6 +373,8 @@ function HeaderChrome({
   pageStatus,
   versions,
   pageId,
+  slug,
+  publicUrl,
   onOpenTemplates,
   onOpenPhone,
   onRestore,
@@ -231,12 +386,46 @@ function HeaderChrome({
   pageStatus: string;
   versions: Version[];
   pageId: string;
+  slug: string;
+  publicUrl: string;
   onOpenTemplates: () => void;
   onOpenPhone: () => void;
   onRestore: () => void;
-  onUnpublish: () => void;
+  onUnpublish: () => void | Promise<void>;
   publishSlot: ReactNode;
 }) {
+  const { toast } = useStudioUi();
+  const [shareBusy, setShareBusy] = useState<"copy" | "qr" | null>(null);
+  const published = pageStatus === "PUBLISHED";
+
+  async function copyLink() {
+    if (!published) {
+      toast("Publique a página para compartilhar o link público.");
+      return;
+    }
+    setShareBusy("copy");
+    try {
+      const ok = await copyTextToClipboard(publicUrl);
+      toast(ok ? "Link do site copiado." : "Não foi possível copiar. Use Ver site.");
+    } finally {
+      setShareBusy(null);
+    }
+  }
+
+  async function downloadQr() {
+    if (!published) {
+      toast("Publique a página para baixar o QR do site.");
+      return;
+    }
+    setShareBusy("qr");
+    try {
+      const ok = await downloadPublicQrPng(publicUrl, slug);
+      toast(ok ? "QR code baixado — pode imprimir ou enviar." : "Não foi possível baixar o QR. Tente de novo.");
+    } finally {
+      setShareBusy(null);
+    }
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
       <span
@@ -251,9 +440,24 @@ function HeaderChrome({
       >
         {status}
       </span>
-      {pageStatus === "PUBLISHED" && !dirty ? (
+      {published && !dirty ? (
         <span className="hidden text-[10px] uppercase tracking-wider text-neutral-500 sm:inline">No ar</span>
       ) : null}
+      {published ? (
+        <a href={publicUrl} target="_blank" rel="noreferrer" className="border px-2 py-1" title="Abre o site público">
+          Ver site
+        </a>
+      ) : (
+        <button type="button" className="border px-2 py-1 opacity-60" onClick={() => toast("Publique a página para ver o site no ar.")}>
+          Ver site
+        </button>
+      )}
+      <button type="button" className="border px-2 py-1 disabled:opacity-50" disabled={shareBusy !== null} onClick={() => void copyLink()} title="Copia o endereço público">
+        {shareBusy === "copy" ? "…" : "Copiar link"}
+      </button>
+      <button type="button" className="border px-2 py-1 disabled:opacity-50" disabled={shareBusy !== null} onClick={() => void downloadQr()} title="Baixa um PNG do QR code do site">
+        {shareBusy === "qr" ? "…" : "Baixar QR"}
+      </button>
       <button type="button" className="border px-2 py-1" onClick={onOpenTemplates}>
         Modelos
       </button>
@@ -261,10 +465,62 @@ function HeaderChrome({
         Preview celular
       </button>
       <HistoryTools pageId={pageId} versions={versions} onRestore={onRestore} />
-      <button type="button" className="border px-2 py-1" onClick={onUnpublish}>
+      <button type="button" className="border px-2 py-1" onClick={() => void onUnpublish()} disabled={!published}>
         Despublicar
       </button>
       {publishSlot}
+    </div>
+  );
+}
+
+function ActionBarWithDeleteConfirm({
+  children,
+  parentAction,
+  label,
+}: {
+  children: ReactNode;
+  parentAction: ReactNode;
+  label?: string;
+}) {
+  const dispatch = useStudioPuck((state) => state.dispatch);
+  const selectedItem = useStudioPuck((state) => state.selectedItem);
+  const { confirm } = useStudioUi();
+
+  function requestDelete(event: { target: EventTarget | null; preventDefault: () => void; stopPropagation: () => void }) {
+    const target = event.target as HTMLElement | null;
+    const button = target?.closest("button, [role='button']") as HTMLElement | null;
+    if (!button) return;
+    const text = `${button.getAttribute("title") || ""} ${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`;
+    if (!/remover|delete/i.test(text)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if ((selectedItem?.props as { locked?: boolean } | undefined)?.locked) return;
+    void (async () => {
+      const ok = await confirm({
+        title: "Remover este bloco?",
+        description: selectedItem
+          ? `O bloco ${selectedItem.type} será removido do rascunho. Você pode desfazer em seguida se precisar.`
+          : "O bloco selecionado será removido do rascunho.",
+        confirmLabel: "Remover",
+        danger: true,
+      });
+      if (!ok || !selectedItem) return;
+      const selectedId = (selectedItem.props as { id?: string }).id;
+      dispatch({
+        type: "setData",
+        data: (previous) => ({
+          ...previous,
+          content: previous.content.filter((block) => (block.props as { id?: string }).id !== selectedId),
+        }),
+      });
+    })();
+  }
+
+  return (
+    <div className="flex items-center gap-1" onClickCapture={requestDelete}>
+      {parentAction}
+      {label ? <span className="px-1 text-[10px] text-neutral-500">{label}</span> : null}
+      {children}
     </div>
   );
 }
@@ -299,204 +555,6 @@ function HistoryTools({ pageId, versions, onRestore }: { pageId: string; version
         </div>
       </details>
     </>
-  );
-}
-
-const themePlugin = {
-  name: "tema",
-  label: "Tema",
-  render: () => <ThemePanel />,
-};
-
-function ThemePanel() {
-  const theme = useStudioPuck((state) => (state.appState.data.root.props as { theme?: Theme } | undefined)?.theme);
-  const dispatch = useStudioPuck((state) => state.dispatch);
-  if (!theme) return <p className="p-3 text-sm">Tema indisponível.</p>;
-  function update(next: Theme) {
-    dispatch({
-      type: "setData",
-      data: (previous) => ({
-        content: previous.content,
-        zones: previous.zones,
-        root: { ...previous.root, props: { ...previous.root.props, theme: next } },
-      }),
-    });
-  }
-  const colorLabels: Record<keyof Theme["colors"], string> = {
-    primary: "Principal",
-    accent: "Secundária / acento",
-    background: "Fundo",
-    muted: "Superfície",
-    foreground: "Texto",
-    border: "Borda",
-  };
-  return (
-    <div className="grid gap-4 p-3 text-sm">
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Cores do sistema</p>
-        <p className="text-[11px] text-neutral-500">Controla a página inteira: fundo, textos, painéis e botões.</p>
-        {(Object.keys(theme.colors) as Array<keyof Theme["colors"]>).map((key) => (
-          <div key={key} className="flex items-center justify-between gap-2 text-xs">
-            <span>{colorLabels[key]}</span>
-            <input
-              type="color"
-              value={toColor(theme.colors[key])}
-              onChange={(event) => update({ ...theme, colors: { ...theme.colors, [key]: event.target.value } })}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Arte de fundo</p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {BG_ART_OPTIONS.map((opt) => {
-            const active = (theme.bgArt ?? "none") === opt.id;
-            const preview = bgArtStyle({
-              bgArt: opt.id,
-              bgArtColor: theme.bgArtColor || theme.colors.foreground,
-              bgArtStrength: Math.max(theme.bgArtStrength ?? 45, 65),
-              colors: theme.colors,
-            });
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                title={opt.label}
-                onClick={() => update({ ...theme, bgArt: opt.id })}
-                className={cn(
-                  "overflow-hidden rounded-lg border text-left",
-                  active ? "border-[var(--studio-accent)] ring-1 ring-[var(--studio-accent)]/40" : "border-[var(--studio-line)]",
-                )}
-              >
-                <div className="h-10 w-full" style={{ backgroundColor: theme.colors.background, ...preview }} />
-                <span className="block px-1.5 py-1 text-[10px] font-medium">{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
-        {(theme.bgArt ?? "none") !== "none" ? (
-          <div className="space-y-2 rounded-lg border border-[var(--studio-line)] p-2">
-            <label className="flex items-center justify-between gap-2 text-xs">
-              Cor das linhas
-              <input
-                type="color"
-                value={toColor(theme.bgArtColor || theme.colors.foreground)}
-                onChange={(event) => update({ ...theme, bgArtColor: event.target.value })}
-              />
-            </label>
-            <label className="grid gap-1 text-xs">
-              <span className="flex justify-between">
-                Intensidade
-                <span className="text-neutral-500">{theme.bgArtStrength ?? 45}%</span>
-              </span>
-              <input
-                type="range"
-                min={8}
-                max={90}
-                value={theme.bgArtStrength ?? 45}
-                onChange={(event) => update({ ...theme, bgArtStrength: Number(event.target.value) })}
-              />
-            </label>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Tipografia</p>
-        <div className="grid gap-1">
-          {TYPOGRAPHY_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              title={preset.hint}
-              onClick={() =>
-                update({
-                  ...theme,
-                  personality: preset.personality,
-                  fonts: FONT_BY_PERSONALITY[preset.personality],
-                  ...STYLE_BY_PERSONALITY[preset.personality],
-                })
-              }
-              className={cn(
-                "rounded-lg border px-2.5 py-1.5 text-left",
-                theme.personality === preset.personality
-                  ? "border-[var(--studio-accent)] bg-white"
-                  : "border-[var(--studio-line)] bg-white/70",
-              )}
-            >
-              <span className="block text-xs font-medium">{preset.label}</span>
-              <span className="block text-[10px] text-neutral-500">{preset.hint}</span>
-            </button>
-          ))}
-        </div>
-        <label className="grid gap-1 text-xs">
-          Fonte de título
-          <select
-            className="border px-2 py-1.5 text-sm"
-            value={theme.fonts.display}
-            onChange={(event) => update({ ...theme, fonts: { ...theme.fonts, display: event.target.value as Theme["fonts"]["display"] } })}
-          >
-            {DISPLAY_FONTS.map((font) => (
-              <option key={font}>{font}</option>
-            ))}
-          </select>
-        </label>
-        <label className="grid gap-1 text-xs">
-          Fonte de texto
-          <select
-            className="border px-2 py-1.5 text-sm"
-            value={theme.fonts.body}
-            onChange={(event) => update({ ...theme, fonts: { ...theme.fonts, body: event.target.value as Theme["fonts"]["body"] } })}
-          >
-            {BODY_FONTS.map((font) => (
-              <option key={font}>{font}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      <div className="grid gap-2">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Forma e ritmo</p>
-        {(
-          [
-            ["radius", "Cantos", ["none", "sm", "md", "lg"]],
-            ["shadow", "Sombra", ["none", "soft", "hard"]],
-            ["button", "Botão", ["solid", "outline", "pill", "underline"]],
-            ["image", "Imagem", ["sharp", "rounded", "framed", "bleed"]],
-            ["spacing", "Espaçamento", ["compact", "comfortable", "airy"]],
-            ["cursor", "Cursor", ["default", "dot"]],
-          ] as const
-        ).map(([key, label, options]) => (
-          <label key={key} className="grid gap-1 text-xs">
-            {label}
-            <select
-              className="border px-2 py-1.5 text-sm"
-              value={theme[key]}
-              onChange={(event) => update({ ...theme, [key]: event.target.value })}
-            >
-              {options.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-        ))}
-        <label className="grid gap-1 text-xs">
-          Personalidade
-          <select
-            className="border px-2 py-1.5 text-sm"
-            value={theme.personality}
-            onChange={(event) => update({ ...theme, personality: event.target.value as Theme["personality"] })}
-          >
-            {PERSONALITIES.map((item) => (
-              <option key={item}>{item}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-    </div>
   );
 }
 
@@ -551,8 +609,4 @@ function AiPanel({ pageId }: { pageId: string }) {
       <p className="text-xs text-neutral-500">Depoimentos e fotos de pessoas continuam como placeholder.</p>
     </div>
   );
-}
-
-function toColor(value: string) {
-  return /^#(?:[0-9a-fA-F]{6})$/.test(value) ? value : "#000000";
 }

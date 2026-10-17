@@ -160,6 +160,7 @@ const chrome = {
   anchor: z.string().optional(),
   visibility: visibilitySchema,
   animation: animationSchema,
+  locked: z.boolean().optional().default(false),
 };
 
 const feature = z.object({
