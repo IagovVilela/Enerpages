@@ -143,13 +143,16 @@ export function Media({
     transform: zoom > 1 ? `scale(${zoom})` : undefined,
     transformOrigin: `${posX}% ${posY}%`,
   } as CSSProperties;
-  const frame = !image?.src || image.placeholder ? (
+  const empty = !image?.src || image.placeholder;
+  const frame = empty ? (
     <div className="media-frame media-placeholder grid h-full min-h-48 place-items-center">
-      <span className="bg-[var(--color-background)] px-3 py-1 text-[0.68rem] uppercase tracking-[0.18em]">Enviar imagem ou vídeo</span>
+      <span className="pointer-events-none bg-[var(--color-background)] px-3 py-1 text-[0.68rem] uppercase tracking-[0.18em]">
+        Mídia
+      </span>
     </div>
   ) : isVideoSrc(image.src) ? (
     <div className="media-frame h-full overflow-hidden">
-        <video src={image.src} className="h-full w-full object-cover" style={crop} controls playsInline />
+      <video src={image.src} className="h-full w-full object-cover" style={crop} controls playsInline />
     </div>
   ) : (
     <div className="media-frame h-full overflow-hidden">
@@ -158,7 +161,7 @@ export function Media({
     </div>
   );
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("group relative", className)}>
       {frame}
       {page.editing && blockId && path ? <CanvasUpload blockId={blockId} path={path} current={image} /> : null}
     </div>

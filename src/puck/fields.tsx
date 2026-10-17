@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { uploadFile } from "@/puck/media-upload";
 import { isVideoSrc, type ImageField } from "@/puck/schema";
 
 const empty: ImageField = { src: "", alt: "", placeholder: true };
+const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm";
 
+/** Inspector de mídia no estilo Zé: preview, botão primário, URL opcional. */
 export function ImageControl({
   value,
   onChange,
@@ -15,6 +17,7 @@ export function ImageControl({
   onChange: (value: ImageField) => void;
   label?: string;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const current = value?.src ? value : empty;
@@ -42,40 +45,84 @@ export function ImageControl({
         void send(event.dataTransfer.files[0]);
       }}
     >
-      <p className="text-xs font-medium">{label}</p>
+      <p className="text-xs font-medium text-neutral-600">{label}</p>
+
       {hasFile && isVideoSrc(current.src) ? (
-        <video src={current.src} className="h-28 w-full bg-black object-cover" controls muted />
+        <video src={current.src} className="max-h-28 w-full rounded-lg border border-[var(--studio-line)] bg-black object-cover" muted playsInline preload="metadata" />
       ) : null}
       {hasFile && !isVideoSrc(current.src) ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={current.src} alt="" className="h-28 w-full object-cover" />
+        <img src={current.src} alt="" className="max-h-28 w-full rounded-lg border border-[var(--studio-line)] object-cover" />
       ) : null}
-      <label className="grid gap-1 border border-neutral-400 bg-white px-3 py-2 text-sm">
-        <span className="font-medium">{pending ? "Enviando…" : "Enviar imagem ou vídeo"}</span>
-        <input
-          className="block w-full text-sm"
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
-          disabled={pending}
-          onChange={(event) => {
-            void send(event.target.files?.[0]);
-            event.target.value = "";
-          }}
-        />
-      </label>
-      <p className="text-[11px] leading-4 text-neutral-500">JPG, PNG, WEBP, GIF, MP4 ou WEBM. Arraste o arquivo aqui.</p>
+      {!hasFile ? (
+        <div className="flex h-20 items-center justify-center rounded-lg border border-dashed border-[var(--studio-line)] text-[11px] text-neutral-500">
+          Nenhum arquivo
+        </div>
+      ) : null}
+
       <input
-        className="border px-2 py-1 text-sm"
-        placeholder="Texto alternativo"
-        value={current.alt || ""}
-        onChange={(event) => onChange({ src: current.src, alt: event.target.value, placeholder: current.placeholder })}
+        ref={inputRef}
+        type="file"
+        accept={ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
+        disabled={pending}
+        onChange={(event) => {
+          void send(event.target.files?.[0]);
+          event.target.value = "";
+        }}
       />
+
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => inputRef.current?.click()}
+        className="w-full rounded-lg bg-[var(--studio-ink)] px-3 py-2.5 text-sm font-semibold text-[var(--studio-bg)] transition disabled:opacity-50"
+      >
+        {pending ? "Enviando…" : hasFile ? "Trocar arquivo" : "Carregar do dispositivo"}
+      </button>
+
       {hasFile ? (
-        <button type="button" className="text-left text-xs underline" onClick={() => onChange(empty)}>
-          Remover arquivo
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => onChange(empty)}
+          className="w-full rounded-lg border border-[var(--studio-line)] px-3 py-1.5 text-[11px] text-neutral-600 hover:bg-white disabled:opacity-50"
+        >
+          Remover mídia
         </button>
       ) : null}
-      {error ? <p className="text-xs text-red-700">{error}</p> : null}
+
+      <p className="text-[10px] leading-relaxed text-neutral-500">
+        JPEG, PNG, WEBP, GIF, MP4 ou WEBM. Arraste o arquivo aqui.
+      </p>
+
+      {error ? <p className="text-[11px] text-red-700">{error}</p> : null}
+
+      <details className="rounded-lg border border-[var(--studio-line)] bg-white/70 px-2 py-1.5">
+        <summary className="cursor-pointer text-[11px] text-neutral-500 hover:text-neutral-800">Ou usar link externo</summary>
+        <label className="mt-2 grid gap-1 text-xs text-neutral-600">
+          URL
+          <input
+            className="border border-[var(--studio-line)] px-2 py-1.5 text-sm"
+            value={hasFile ? current.src : ""}
+            placeholder="https://…"
+            onChange={(event) => {
+              const src = event.target.value.trim();
+              onChange(src ? { src, alt: current.alt || "", placeholder: false } : empty);
+            }}
+          />
+        </label>
+      </details>
+
+      <label className="grid gap-1 text-xs text-neutral-600">
+        Texto alternativo
+        <input
+          className="border border-[var(--studio-line)] px-2 py-1.5 text-sm"
+          value={current.alt || ""}
+          onChange={(event) => onChange({ src: current.src, alt: event.target.value, placeholder: current.placeholder })}
+        />
+      </label>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { registerOverlayPortal, setDeep } from "@puckeditor/core";
 import { useEffect, useRef, useState } from "react";
 import type { ImageField } from "@/puck/schema";
 import { useStudioPuck } from "@/puck/use-studio-puck";
+import { cn } from "@/lib/cn";
 
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm";
 
@@ -16,6 +17,7 @@ export async function uploadFile(file: File) {
   return { url: payload.url };
 }
 
+/** Overlay no canvas no estilo Zé: zona clicável, sem input nativo visível. */
 export function CanvasUpload({
   blockId,
   path,
@@ -28,9 +30,11 @@ export function CanvasUpload({
   const dispatch = useStudioPuck((state) => state.dispatch);
   const getItemById = useStudioPuck((state) => state.getItemById);
   const getSelectorForId = useStudioPuck((state) => state.getSelectorForId);
-  const portalRef = useRef<HTMLLabelElement>(null);
+  const portalRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const hasFile = Boolean(current.src) && !current.placeholder;
 
   useEffect(() => registerOverlayPortal(portalRef.current, { disableDrag: true }), []);
 
@@ -63,19 +67,54 @@ export function CanvasUpload({
   }
 
   return (
-    <label ref={portalRef} className="absolute left-3 right-3 top-3 z-30 grid gap-1 bg-white p-2 text-sm text-black shadow">
-      <span className="font-medium">{pending ? "Enviando…" : "Enviar imagem ou vídeo"}</span>
+    <div
+      ref={portalRef}
+      className={cn(
+        "absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 p-3 transition",
+        hasFile ? "bg-transparent hover:bg-black/40" : "bg-transparent",
+      )}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        void send(event.dataTransfer.files[0]);
+      }}
+    >
       <input
-        className="block w-full text-xs"
+        ref={inputRef}
         type="file"
         accept={ACCEPT}
+        className="sr-only"
+        tabIndex={-1}
         disabled={pending}
         onChange={(event) => {
           void send(event.target.files?.[0]);
           event.target.value = "";
         }}
       />
-      {error ? <span className="text-xs text-red-700">{error}</span> : null}
-    </label>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          inputRef.current?.click();
+        }}
+        className={cn(
+          "rounded-lg px-3 py-2 text-xs font-semibold shadow transition disabled:opacity-50",
+          hasFile
+            ? "bg-white text-neutral-900 opacity-0 hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+            : "border border-dashed border-neutral-500/60 bg-white/95 text-neutral-800",
+        )}
+      >
+        {pending ? "Enviando…" : hasFile ? "Trocar arquivo" : "Carregar do dispositivo"}
+      </button>
+      {!hasFile ? (
+        <p className="pointer-events-none max-w-[14rem] text-center text-[10px] text-neutral-600">
+          JPG, PNG, WEBP, GIF, MP4 ou WEBM. Arraste aqui ou use o botão.
+        </p>
+      ) : null}
+      {error ? <span className="rounded bg-white px-2 py-1 text-[10px] text-red-700">{error}</span> : null}
+    </div>
   );
 }
