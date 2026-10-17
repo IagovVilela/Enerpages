@@ -1,7 +1,5 @@
 import { readUpload } from "@/lib/storage";
 
-export const runtime = "nodejs";
-
 export async function GET(_request: Request, context: { params: Promise<{ path: string[] }> }) {
   const { path: parts } = await context.params;
   const key = parts.map((part) => decodeURIComponent(part)).join("/");

@@ -18,8 +18,8 @@ export function uploadRoot() {
 
 export function resolveUploadPath(relativeKey: string) {
   const normalized = relativeKey.replace(/^\/+/, "").replace(/\.\./g, "");
-  const full = path.resolve(uploadRoot(), normalized);
-  const root = path.resolve(uploadRoot());
+  const full = path.resolve(/* turbopackIgnore: true */ uploadRoot(), normalized);
+  const root = path.resolve(/* turbopackIgnore: true */ uploadRoot());
   const prefix = root.endsWith(path.sep) ? root : root + path.sep;
   if (full !== root && !full.startsWith(prefix)) {
     throw new Error("Caminho de upload inválido.");
@@ -35,7 +35,7 @@ export async function readUpload(relativeKey: string): Promise<{ data: Buffer; m
   }
 
   const full = resolveUploadPath(key);
-  const data = await readFile(full);
+  const data = await readFile(/* turbopackIgnore: true */ full);
   const ext = key.split(".").pop()?.toLowerCase() || "";
   const TYPES: Record<string, string> = {
     jpg: "image/jpeg",
