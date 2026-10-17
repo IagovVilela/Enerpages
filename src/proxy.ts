@@ -31,7 +31,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
+  // Auth.js v5 em HTTPS usa o cookie `__Secure-authjs.session-token`.
+  // Sem secureCookie:true o getToken procura o nome errado e o login "funciona"
+  // mas o proxy manda de volta para /login.
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const secureCookie =
+    forwardedProto === "https" ||
+    request.nextUrl.protocol === "https:" ||
+    Boolean(process.env.AUTH_URL?.startsWith("https://"));
+
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+    secureCookie,
+  });
   if (!token) {
     const login = request.nextUrl.clone();
     login.pathname = "/login";
