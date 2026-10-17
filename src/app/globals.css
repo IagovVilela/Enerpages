@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
+/* Identidade Enerpages — ver public/brand/identity-sheet.jpg */
 :root {
   --studio-bg: #f3efe7;
   --studio-ink: #1c1915;
   --studio-line: #d9d0c3;
   --studio-accent: #9a3412;
+  --studio-surface: #fffdf9;
 }
 
 body {

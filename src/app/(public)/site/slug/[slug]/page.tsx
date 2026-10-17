@@ -4,16 +4,20 @@ import { notFound } from "next/navigation";
 import Script from "next/script";
 import { Render } from "@puckeditor/core/rsc";
 import { cacheLife, cacheTag } from "next/cache";
-import { config } from "@/puck/config";
-import { loadPublicPage, type PublicPage } from "@/lib/published";
+import { TenantCanvasRenderer } from "@/components/tenant-canvas-renderer";
 import { ARCHETYPES } from "@/lib/ai/archetypes";
+import { loadPublicPage, type PublicPage } from "@/lib/published";
 import { publicOrigin } from "@/lib/tenant";
+import { config } from "@/puck/config";
 import type { PageDocument } from "@/puck/schema";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const page = await cachedPage(slug);
-  if (!page || page.status !== "PUBLISHED" || !page.data) {
+  const ready =
+    page?.status === "PUBLISHED" &&
+    ((page.publishEngine === "CANVAS" && page.canvas) || (page.publishEngine !== "CANVAS" && page.data));
+  if (!page || !ready) {
     return { title: page ? `${page.clientName} · em construção` : "Página não encontrada", robots: { index: false, follow: false } };
   }
   return metadataFor(page);
@@ -42,7 +46,9 @@ export async function cachedPage(slug: string) {
 }
 
 export function SiteView({ page }: { page: PublicPage }) {
-  if (page.status !== "PUBLISHED" || !page.data) {
+  const canvasReady = page.publishEngine === "CANVAS" && page.canvas;
+  const puckReady = page.publishEngine !== "CANVAS" && page.data;
+  if (page.status !== "PUBLISHED" || (!canvasReady && !puckReady)) {
     return (
       <main className="grid min-h-screen place-items-center px-6 text-center">
         <div>
@@ -52,10 +58,20 @@ export function SiteView({ page }: { page: PublicPage }) {
       </main>
     );
   }
-  const data = withRuntime(page.data, page.slug, page.id);
+
+  if (canvasReady && page.canvas) {
+    return (
+      <>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd(page)) }} />
+        <TenantCanvasRenderer canvas={page.canvas} clientName={page.clientName} />
+      </>
+    );
+  }
+
+  const data = withRuntime(page.data!, page.slug, page.id);
   const schema = jsonLd(page);
-  const ga = /^G-[A-Z0-9]+$/.test(page.data.root.props.analytics.ga4) ? page.data.root.props.analytics.ga4 : "";
-  const pixel = /^\d{5,20}$/.test(page.data.root.props.analytics.metaPixel) ? page.data.root.props.analytics.metaPixel : "";
+  const ga = /^G-[A-Z0-9]+$/.test(page.data!.root.props.analytics.ga4) ? page.data!.root.props.analytics.ga4 : "";
+  const pixel = /^\d{5,20}$/.test(page.data!.root.props.analytics.metaPixel) ? page.data!.root.props.analytics.metaPixel : "";
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
@@ -75,13 +91,15 @@ function withRuntime(data: PageDocument, slug: string, pageId: string): PageDocu
 function metadataFor(page: PublicPage): Metadata {
   const seo = page.data?.root.props.seo;
   const url = page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug);
+  const title = seo?.title || page.seoTitle || page.clientName;
+  const description = seo?.description || page.seoDescription || "";
   return {
-    title: seo?.title || page.seoTitle,
-    description: seo?.description || page.seoDescription,
+    title,
+    description,
     alternates: { canonical: url },
     openGraph: {
-      title: seo?.title || page.seoTitle,
-      description: seo?.description || page.seoDescription,
+      title,
+      description,
       url,
       images: seo?.ogImage ? [seo.ogImage] : undefined,
     },

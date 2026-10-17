@@ -3,7 +3,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { resolveHost, rootDomain } from "@/lib/tenant";
 
-const PUBLIC_PREFIXES = ["/login", "/api/auth", "/api/leads", "/api/analytics", "/preview", "/uploads"];
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/api/auth",
+  "/api/leads",
+  "/api/analytics",
+  "/api/intake",
+  "/intake",
+  "/preview",
+  "/uploads",
+];
 
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") || "";

@@ -29,24 +29,33 @@ model Session {
 }
 
 model Page {
-  id             String         @id @default(cuid())
-  slug           String         @unique
-  customDomain   String?        @unique
-  clientName     String
-  segment        String
-  status         PageStatus     @default(DRAFT)
-  draftData      Json
-  publishedData  Json?
-  publishedAt    DateTime?
-  seoTitle       String         @default("")
-  seoDescription String         @default("")
-  archetype      String?
-  currentVersion Int            @default(1)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  versions       PageVersion[]
-  leads          Lead[]
-  analytics      AnalyticsDaily[]
+  id              String         @id @default(cuid())
+  slug            String         @unique
+  customDomain    String?        @unique
+  clientName      String
+  segment         String
+  status          PageStatus     @default(DRAFT)
+  draftData       Json
+  publishedData   Json?
+  /** Canvas Ze (siteJson v2) — rascunho do ambiente livre. */
+  canvasDraft     Json?
+  /** Snapshot do canvas publicado (quando publishEngine = CANVAS). */
+  canvasPublished Json?
+  /** Último ambiente aberto no studio. */
+  editorMode      EditorEngine   @default(PUCK)
+  /** Motor que o site público renderiza após publicar. */
+  publishEngine   EditorEngine   @default(PUCK)
+  publishedAt     DateTime?
+  seoTitle        String         @default("")
+  seoDescription  String         @default("")
+  archetype       String?
+  currentVersion  Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  versions        PageVersion[]
+  leads           Lead[]
+  analytics       AnalyticsDaily[]
+  intakeInvites   IntakeInvite[]
 }
 
 model PageVersion {
@@ -120,10 +129,48 @@ enum PageStatus {
   ARCHIVED
 }
 
+enum EditorEngine {
+  PUCK
+  CANVAS
+}
+
 enum VersionSource {
   MANUAL
   AUTOSAVE
   AI
   PUBLISH
   RESTORE
+}
+
+enum IntakeStatus {
+  PENDING
+  SUBMITTED
+  USED
+  EXPIRED
+}
+
+model IntakeInvite {
+  id             String            @id @default(cuid())
+  token          String            @unique
+  status         IntakeStatus      @default(PENDING)
+  expiresAt      DateTime
+  clientNameHint String?
+  segmentHint    String?
+  notes          String?
+  pageId         String?
+  page           Page?             @relation(fields: [pageId], references: [id], onDelete: SetNull)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  submission     IntakeSubmission?
+
+  @@index([status, createdAt])
+  @@index([expiresAt])
+}
+
+model IntakeSubmission {
+  id          String       @id @default(cuid())
+  inviteId    String       @unique
+  invite      IntakeInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  payload     Json
+  submittedAt DateTime     @default(now())
 }

@@ -1,24 +1,42 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import { linkIntakeToPage } from "@/actions/intake";
 import { createPage } from "@/actions/studio";
 import { ProposalPreviewModal } from "@/components/proposal-preview";
 import { RequestProgress } from "@/components/request-progress";
+import { applyIntakeToDocument, type IntakePayload } from "@/lib/intake/schema";
 import { normalizeSlug } from "@/lib/slug";
-import { SEGMENTS, type PageDocument } from "@/puck/schema";
+import { SEGMENTS, type Briefing, type PageDocument } from "@/puck/schema";
 
 type Proposal = { label: string; direction: string; source: "ai" | "fallback"; data: PageDocument };
 
-export function BriefingForm() {
+export function BriefingForm({
+  initial,
+  intakeId,
+  intakePayloadJson,
+}: {
+  initial?: Briefing;
+  intakeId?: string;
+  intakePayloadJson?: string;
+}) {
   const busyRef = useRef(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [warning, setWarning] = useState("");
   const [pending, setPending] = useState(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState("");
-  const [clientName, setClientName] = useState("");
-  const [slug, setSlug] = useState("");
+  const [clientName, setClientName] = useState(initial?.clientName ?? "");
+  const [slug, setSlug] = useState(initial?.slug ?? "");
   const [preview, setPreview] = useState<Proposal | null>(null);
+  const intakePayload = (() => {
+    if (!intakePayloadJson) return null;
+    try {
+      return JSON.parse(intakePayloadJson) as IntakePayload;
+    } catch {
+      return null;
+    }
+  })();
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -96,15 +114,19 @@ export function BriefingForm() {
     setOpening(true);
     setError("");
     try {
+      const data = intakePayload ? applyIntakeToDocument(proposal.data, intakePayload) : proposal.data;
       const result = await createPage({
         clientName: meta.nextName,
         segment: meta.segment,
         slug: meta.nextSlug,
-        data: proposal.data,
+        data,
       });
       if (!result.ok) {
         setError(result.error);
         return;
+      }
+      if (intakeId) {
+        await linkIntakeToPage(intakeId, result.id);
       }
       // Hard navigation evita ficar preso no modal se o App Router falhar ao hidratar.
       window.location.assign(`/pages/${result.id}`);
@@ -147,14 +169,24 @@ export function BriefingForm() {
           value={slug}
           onChange={(event) => setSlug(normalizeSlug(event.target.value))}
         />
-        <select className="border bg-white px-3 py-2 disabled:opacity-60" name="segment" defaultValue="local" disabled={locked}>
+        <select
+          className="border bg-white px-3 py-2 disabled:opacity-60"
+          name="segment"
+          defaultValue={initial?.segment ?? "local"}
+          disabled={locked}
+        >
           {SEGMENTS.map((item) => (
             <option key={item} value={item}>
               {item}
             </option>
           ))}
         </select>
-        <select className="border bg-white px-3 py-2 disabled:opacity-60" name="goal" defaultValue="captar" disabled={locked}>
+        <select
+          className="border bg-white px-3 py-2 disabled:opacity-60"
+          name="goal"
+          defaultValue={initial?.goal ?? "captar"}
+          disabled={locked}
+        >
           <option value="vender">Vender</option>
           <option value="agendar">Agendar</option>
           <option value="captar">Captar contato</option>
@@ -163,36 +195,42 @@ export function BriefingForm() {
           className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
           name="audience"
           placeholder="Público"
+          defaultValue={initial?.audience ?? ""}
           disabled={locked}
         />
         <textarea
           className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
           name="tone"
           placeholder="Tom de voz"
+          defaultValue={initial?.tone ?? ""}
           disabled={locked}
         />
         <textarea
           className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
           name="differentials"
           placeholder="Diferenciais"
+          defaultValue={initial?.differentials ?? ""}
           disabled={locked}
         />
         <textarea
           className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
           name="services"
           placeholder="Serviços, separados por vírgula"
+          defaultValue={initial?.services ?? ""}
           disabled={locked}
         />
         <input
           className="border bg-white px-3 py-2 disabled:opacity-60"
           name="colors"
           placeholder="Cor, se houver (#8f3d2b)"
+          defaultValue={initial?.colors ?? ""}
           disabled={locked}
         />
         <input
           className="border bg-white px-3 py-2 disabled:opacity-60"
           name="references"
           placeholder="Referências"
+          defaultValue={initial?.references ?? ""}
           disabled={locked}
         />
         <button

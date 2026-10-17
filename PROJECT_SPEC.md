@@ -1,12 +1,13 @@
-# EDITOR VISUAL (DECISÃO TOMADA: USAR PUCK)
+# EDITOR VISUAL (PUCK + AMBIENTE ZE)
 
-Use a biblioteca Puck (`@puckeditor/core`, sucessor do `@measured/puck`) como base do editor visual. Não use Craft.js.
+Use a biblioteca Puck (`@puckeditor/core`, sucessor do `@measured/puck`) como um dos editores. Não use Craft.js.
 - Cada bloco da minha biblioteca é um componente registrado no Puck, com seus campos de edição (texto, imagem, cor, variante, preset de animação) e versão responsiva.
-- O JSON do Puck é o formato canônico da página (acrescido do objeto de Tema/Design Tokens em `root.props`).
-- A página pública usa o componente Render do Puck com os MESMOS componentes do editor.
-- Personalize a interface do Puck (painéis, tema, rótulos em português) para ficar com cara de ferramenta própria, e adicione: troca de viewport desktop/tablet/mobile, painel de tema global, histórico de versões e autosave.
-- Todos os blocos devem suportar animações Motion configuráveis por campo (preset, duração, delay, gatilho).
-- Paridade de edição com o studio do Ze do Corte (sem trocar o motor): biblioteca em abas Itens / Seções / Prontos, camadas (estrutura), modelos de página com confirmação, status Não salvo / Salvo / No ar, pré-visualização celular, painel de tema (cores, tipografia, arte de fundo), upload de mídia no inspector e publicar com feedback claro. O canvas de posições absolutas do Ze não é o formato canônico — o Puck continua sendo o criador.
+- O JSON do Puck (`draftData` / `publishedData`) e o canvas Ze (`canvasDraft` / `canvasPublished`, contrato siteJson v2) convivem na mesma página.
+- O studio permite **trocar de ambiente** (Puck ↔ Ze) e **exportar o estado atual** (conversão aproximada) ou abrir o outro rascunho sem sobrescrever.
+- `publishEngine` define o que o site público renderiza: Puck `Render` ou `TenantCanvasRenderer`.
+- Personalize a interface do Puck (painéis, tema, rótulos em português) e porte o canvas livre do Ze (drag/resize, arteboards, biblioteca).
+- Todos os blocos Puck devem suportar animações Motion configuráveis por campo (preset, duração, delay, gatilho).
+- Paridade UX com o studio do Ze do Corte no ambiente canvas; no Puck, mantenha biblioteca, camadas, modelos, status e tema.
 
 # GERAÇÃO ASSISTIDA POR IA (APENAS PROVEDORES GRATUITOS)
 

@@ -37,6 +37,7 @@ export function StudioEditor(props: {
   publicUrl: string;
   initial: PageDocument;
   versions: Version[];
+  onLiveChange?: (data: PageDocument) => void;
 }) {
   const [liveStatus, setLiveStatus] = useState(props.status);
   useEffect(() => {
@@ -61,6 +62,7 @@ function StudioEditorInner({
   publicUrl,
   initial,
   versions,
+  onLiveChange,
 }: {
   pageId: string;
   clientName: string;
@@ -72,6 +74,7 @@ function StudioEditorInner({
   publicUrl: string;
   initial: PageDocument;
   versions: Version[];
+  onLiveChange?: (data: PageDocument) => void;
 }) {
   const router = useRouter();
   const { toast, confirm } = useStudioUi();
@@ -251,6 +254,7 @@ function StudioEditorInner({
         }}
         onChange={(data) => {
           latest.current = data;
+          onLiveChange?.(data as PageDocument);
           setTick((value) => value + 1);
         }}
         onPublish={async () => {

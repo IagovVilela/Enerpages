@@ -23,8 +23,12 @@ async function Dashboard() {
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em]">Páginas</p>
-          <h1 className="text-4xl tracking-tight">Clientes</h1>
+          <p className="text-xs uppercase tracking-[0.18em] text-[color-mix(in_srgb,var(--studio-ink)_55%,transparent)]">
+            Páginas
+          </p>
+          <h1 className="font-[family-name:var(--font-brand-display)] text-4xl font-medium tracking-tight">
+            Clientes
+          </h1>
           <p className="mt-2 max-w-xl text-sm text-neutral-600">
             Escolha um modelo, abra o editor e publique quando estiver pronto.
           </p>
@@ -35,6 +39,9 @@ async function Dashboard() {
           </Link>
           <Link className="border border-[var(--studio-ink)] px-4 py-2 text-sm" href="/briefing">
             Gerar com briefing
+          </Link>
+          <Link className="border border-[var(--studio-line)] px-4 py-2 text-sm" href="/intakes">
+            Link do cliente
           </Link>
         </div>
       </div>

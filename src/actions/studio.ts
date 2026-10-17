@@ -1,14 +1,20 @@
 "use server";
 
 import { updateTag } from "next/cache";
-import { prisma } from "@/lib/db";
+import type { Prisma, VersionSource } from "@prisma/client";
 import { requireAdmin } from "@/lib/admin";
+import { canvasToPuck, puckToCanvas } from "@/lib/canvas/bridge";
+import { parseSiteCanvasConfig, siteCanvasSchema } from "@/lib/canvas/site-canvas";
+import { prisma } from "@/lib/db";
 import { signPreview } from "@/lib/preview";
 import { slugError } from "@/lib/slug";
-import { pageDataSchema, SEGMENTS, type PageDocument } from "@/puck/schema";
 import { blankDocument } from "@/puck/defaults";
 import { buildPageTemplate, isPageTemplateId, type PageTemplateId } from "@/puck/page-templates";
-import type { VersionSource } from "@prisma/client";
+import { pageDataSchema, SEGMENTS, type PageDocument } from "@/puck/schema";
+
+function asJson(value: unknown): Prisma.InputJsonValue {
+  return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
+}
 
 function seo(data: PageDocument) {
   return {
@@ -56,6 +62,8 @@ export async function publishPage(pageId: string, data: unknown) {
       draftData: parsed.data,
       publishedData: parsed.data,
       status: "PUBLISHED",
+      publishEngine: "PUCK",
+      editorMode: "PUCK",
       publishedAt: new Date(),
       ...seo(parsed.data),
     },
@@ -65,6 +73,101 @@ export async function publishPage(pageId: string, data: unknown) {
   if (page.customDomain) updateTag(`domain:${page.customDomain}`);
   updateTag("pages:index");
   return { ok: true as const, slug: page.slug };
+}
+
+export async function saveCanvasDraft(pageId: string, data: unknown) {
+  await requireAdmin();
+  const page = await prisma.page.findUnique({ where: { id: pageId }, select: { clientName: true } });
+  if (!page) return { ok: false as const, error: "Página não encontrada." };
+  const parsed = siteCanvasSchema.safeParse(data);
+  if (!parsed.success) return { ok: false as const, error: "O canvas está inválido." };
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { canvasDraft: asJson(parsed.data), editorMode: "CANVAS" },
+  });
+  return { ok: true as const };
+}
+
+export async function publishCanvas(pageId: string, data: unknown) {
+  await requireAdmin();
+  const pageMeta = await prisma.page.findUnique({ where: { id: pageId }, select: { clientName: true, slug: true, customDomain: true } });
+  if (!pageMeta) return { ok: false as const, error: "Página não encontrada." };
+  const parsed = siteCanvasSchema.safeParse(data);
+  if (!parsed.success) return { ok: false as const, error: "Revise o canvas antes de publicar." };
+  const page = await prisma.page.update({
+    where: { id: pageId },
+    data: {
+      canvasDraft: asJson(parsed.data),
+      canvasPublished: asJson(parsed.data),
+      status: "PUBLISHED",
+      publishEngine: "CANVAS",
+      editorMode: "CANVAS",
+      publishedAt: new Date(),
+      seoTitle: pageMeta.clientName,
+    },
+  });
+  updateTag(`page:${page.slug}`);
+  if (page.customDomain) updateTag(`domain:${page.customDomain}`);
+  updateTag("pages:index");
+  return { ok: true as const, slug: page.slug };
+}
+
+export async function setEditorMode(pageId: string, mode: "PUCK" | "CANVAS") {
+  await requireAdmin();
+  await prisma.page.update({ where: { id: pageId }, data: { editorMode: mode } });
+  return { ok: true as const };
+}
+
+export async function savePuckDraftFromExport(pageId: string, data: unknown) {
+  await requireAdmin();
+  const parsed = pageDataSchema.safeParse(data);
+  if (!parsed.success) return { ok: false as const, error: "Exportação para Puck inválida." };
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { draftData: parsed.data, editorMode: "PUCK", ...seo(parsed.data) },
+  });
+  await snapshot(pageId, parsed.data, "MANUAL", "Exportado do Ze");
+  return { ok: true as const, data: parsed.data };
+}
+
+export async function saveCanvasFromExport(pageId: string, data: unknown, clientName: string) {
+  await requireAdmin();
+  const canvas = parseSiteCanvasConfig(data, clientName);
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { canvasDraft: asJson(canvas), editorMode: "CANVAS" },
+  });
+  return { ok: true as const, data: canvas };
+}
+
+/** Converte o rascunho Puck salvo no banco → canvas (exportação confiável). */
+export async function exportPuckDraftToCanvas(pageId: string) {
+  await requireAdmin();
+  const page = await prisma.page.findUnique({ where: { id: pageId } });
+  if (!page) return { ok: false as const, error: "Página não encontrada." };
+  const parsed = pageDataSchema.safeParse(page.draftData);
+  if (!parsed.success) return { ok: false as const, error: "Rascunho Puck inválido. Salve antes de exportar." };
+  const canvas = puckToCanvas(parsed.data, page.clientName);
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { canvasDraft: asJson(canvas), editorMode: "CANVAS" },
+  });
+  return { ok: true as const, data: canvas };
+}
+
+/** Converte o canvas salvo → Puck. */
+export async function exportCanvasDraftToPuck(pageId: string) {
+  await requireAdmin();
+  const page = await prisma.page.findUnique({ where: { id: pageId } });
+  if (!page) return { ok: false as const, error: "Página não encontrada." };
+  const canvas = parseSiteCanvasConfig(page.canvasDraft, page.clientName);
+  const doc = canvasToPuck(canvas, page.clientName, page.segment);
+  await prisma.page.update({
+    where: { id: pageId },
+    data: { draftData: doc, editorMode: "PUCK", ...seo(doc) },
+  });
+  await snapshot(pageId, doc, "MANUAL", "Exportado do Ze");
+  return { ok: true as const, data: doc };
 }
 
 export async function unpublishPage(pageId: string) {

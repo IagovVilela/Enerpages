@@ -119,10 +119,49 @@ export function About(props: PropsOf<"About">) {
     </div>
   ));
   const body = {
-    columns: <div className="grid gap-10 lg:grid-cols-2"><div><p className="eyebrow text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mt-3 font-display text-5xl leading-none md:text-7xl"><Heading text={props.title} animation={props.animation} /></h2><p className="mt-6 max-w-prose text-lg leading-8">{props.body}</p></div><div className="grid gap-6">{points}</div></div>,
-    overlap: <div className="grid gap-6 md:grid-cols-[0.8fr_1.2fr]"><Media image={props.image} blockId={id} path="image" className="min-h-96" /><div className="md:-ml-16 md:mt-16 bg-[var(--color-muted)] p-8"><h2 className="font-display text-5xl leading-none">{props.title}</h2><p className="mt-4 leading-7">{props.body}</p></div></div>,
-    manifesto: <div className="max-w-5xl"><p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p><h2 className="mt-4 font-display text-[clamp(2.8rem,6vw,6rem)] leading-[0.9]">{props.title}</h2><p className="mt-8 max-w-2xl text-xl leading-9">{props.body}</p></div>,
-    sidebar: <div className="grid gap-10 border-y border-[var(--color-border)] py-10 md:grid-cols-[12rem_1fr]"><p className="text-xs uppercase tracking-[0.16em]">{props.eyebrow}</p><div><h2 className="font-display text-5xl">{props.title}</h2><p className="mt-4 max-w-prose leading-7">{props.body}</p><div className="mt-8 grid gap-4 md:grid-cols-3">{points}</div></div></div>,
+    columns: (
+      <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
+        <div>
+          <p className="eyebrow text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p>
+          <h2 className="mt-3 font-display text-5xl leading-none md:text-7xl">
+            <Heading text={props.title} animation={props.animation} />
+          </h2>
+          <p className="mt-6 max-w-prose text-lg leading-8">{props.body}</p>
+          {points.length ? <div className="mt-8 grid gap-6">{points}</div> : null}
+        </div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-96" />
+      </div>
+    ),
+    overlap: (
+      <div className="grid gap-6 md:grid-cols-[0.8fr_1.2fr]">
+        <Media image={props.image} blockId={id} path="image" className="min-h-96" />
+        <div className="bg-[var(--color-muted)] p-8 md:-ml-16 md:mt-16">
+          <h2 className="font-display text-5xl leading-none">{props.title}</h2>
+          <p className="mt-4 leading-7">{props.body}</p>
+        </div>
+      </div>
+    ),
+    manifesto: (
+      <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+        <div className="max-w-5xl">
+          <p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p>
+          <h2 className="mt-4 font-display text-[clamp(2.8rem,6vw,6rem)] leading-[0.9]">{props.title}</h2>
+          <p className="mt-8 max-w-2xl text-xl leading-9">{props.body}</p>
+        </div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-80" />
+      </div>
+    ),
+    sidebar: (
+      <div className="grid gap-10 border-y border-[var(--color-border)] py-10 md:grid-cols-[12rem_1fr_minmax(14rem,22rem)] md:items-start">
+        <p className="text-xs uppercase tracking-[0.16em]">{props.eyebrow}</p>
+        <div>
+          <h2 className="font-display text-5xl">{props.title}</h2>
+          <p className="mt-4 max-w-prose leading-7">{props.body}</p>
+          {points.length ? <div className="mt-8 grid gap-4 md:grid-cols-3">{points}</div> : null}
+        </div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-72" />
+      </div>
+    ),
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor || "about"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }

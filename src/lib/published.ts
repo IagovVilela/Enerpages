@@ -1,3 +1,4 @@
+import { parseSiteCanvasConfig, type SiteCanvasConfig } from "@/lib/canvas/site-canvas";
 import { prisma, prismaPublic } from "@/lib/db";
 import { pageDataSchema, type PageDocument } from "@/puck/schema";
 
@@ -11,10 +12,18 @@ export type PublicPage = {
   seoDescription: string;
   customDomain: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  publishEngine: "PUCK" | "CANVAS";
   data: PageDocument | null;
+  canvas: SiteCanvasConfig | null;
 };
 
-type StateRow = { slug: string; status: "DRAFT" | "PUBLISHED" | "ARCHIVED"; customDomain: string | null; clientName: string };
+type StateRow = {
+  slug: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  customDomain: string | null;
+  clientName: string;
+};
+
 type PublishedRow = {
   id: string;
   slug: string;
@@ -22,6 +31,8 @@ type PublishedRow = {
   clientName: string;
   segment: string;
   publishedData: unknown;
+  canvasPublished: unknown | null;
+  publishEngine: "PUCK" | "CANVAS";
   seoTitle: string;
   seoDescription: string;
   archetype: string | null;
@@ -44,11 +55,24 @@ async function readState(where: { slug?: string; host?: string }): Promise<State
 async function readPublished(slug: string): Promise<PublishedRow | null> {
   if (!process.env.DATABASE_URL_PUBLIC) {
     const page = await prisma.page.findFirst({ where: { slug, status: "PUBLISHED" } });
-    if (!page?.publishedData) return null;
-    return page;
+    if (!page) return null;
+    return {
+      id: page.id,
+      slug: page.slug,
+      customDomain: page.customDomain,
+      clientName: page.clientName,
+      segment: page.segment,
+      publishedData: page.publishedData,
+      canvasPublished: page.canvasPublished,
+      publishEngine: page.publishEngine,
+      seoTitle: page.seoTitle,
+      seoDescription: page.seoDescription,
+      archetype: page.archetype,
+    };
   }
   const rows = await prismaPublic.$queryRaw<PublishedRow[]>`
-    SELECT id, slug, "customDomain", "clientName", segment, "publishedData", "seoTitle", "seoDescription", archetype
+    SELECT id, slug, "customDomain", "clientName", segment, "publishedData", "canvasPublished",
+           "publishEngine"::text as "publishEngine", "seoTitle", "seoDescription", archetype
     FROM "PublishedPage" WHERE slug = ${slug} LIMIT 1
   `;
   return rows[0] ?? null;
@@ -68,11 +92,19 @@ export async function loadPublicPage(where: { slug?: string; host?: string }): P
       seoDescription: "",
       customDomain: state.customDomain,
       status: state.status,
+      publishEngine: "PUCK",
       data: null,
+      canvas: null,
     };
   }
   const row = await readPublished(state.slug);
+  const engine = row?.publishEngine === "CANVAS" ? "CANVAS" : "PUCK";
   const parsed = pageDataSchema.safeParse(row?.publishedData);
+  const canvas =
+    engine === "CANVAS" && row?.canvasPublished
+      ? parseSiteCanvasConfig(row.canvasPublished, row.clientName || state.clientName)
+      : null;
+
   return {
     id: row?.id || "",
     slug: state.slug,
@@ -83,6 +115,8 @@ export async function loadPublicPage(where: { slug?: string; host?: string }): P
     seoDescription: row?.seoDescription || "",
     customDomain: row?.customDomain ?? state.customDomain,
     status: "PUBLISHED",
+    publishEngine: engine,
     data: parsed.success ? parsed.data : null,
+    canvas,
   };
 }

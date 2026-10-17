@@ -36,7 +36,9 @@ async function PreviewBody({ params }: { params: Promise<{ token: string }> }) {
         seoDescription: page.seoDescription,
         customDomain: page.customDomain,
         status: "PUBLISHED",
+        publishEngine: page.publishEngine === "CANVAS" ? "CANVAS" : "PUCK",
         data: parsed.data,
+        canvas: null,
       }}
     />
   );

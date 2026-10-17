@@ -1,10 +1,11 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { previewLink, updatePageMeta } from "@/actions/studio";
-import { StudioEditor } from "@/components/studio-editor";
+import { StudioWorkspace } from "@/components/studio-workspace";
+import { parseSiteCanvasConfig } from "@/lib/canvas/site-canvas";
 import { prisma } from "@/lib/db";
-import { pageDataSchema } from "@/puck/schema";
 import { publicOrigin } from "@/lib/tenant";
+import { pageDataSchema } from "@/puck/schema";
 
 export default function EditorPage({ params }: { params: Promise<{ id: string }> }) {
   return (
@@ -27,6 +28,9 @@ async function Editor({ params }: { params: Promise<{ id: string }> }) {
     return <p className="p-8">O rascunho desta página está inválido e não pode abrir no editor.</p>;
   }
   const token = await previewLink(current.id);
+  const canvas = current.canvasDraft
+    ? parseSiteCanvasConfig(current.canvasDraft, current.clientName)
+    : null;
 
   async function saveMeta(formData: FormData) {
     "use server";
@@ -40,14 +44,21 @@ async function Editor({ params }: { params: Promise<{ id: string }> }) {
   return (
     <div>
       <form action={saveMeta} className="flex flex-wrap items-center gap-2 border-b border-[var(--studio-line)] px-4 py-2 text-sm">
-        <input className="border px-2 py-1" name="clientName"           defaultValue={current.clientName} />
+        <input className="border px-2 py-1" name="clientName" defaultValue={current.clientName} />
         <input className="border px-2 py-1" name="slug" defaultValue={current.slug} />
-        <input className="border px-2 py-1" name="customDomain" placeholder="dominio próprio (futuro)" defaultValue={current.customDomain || ""} />
-        <button className="border px-2 py-1" type="submit">Salvar endereço</button>
+        <input
+          className="border px-2 py-1"
+          name="customDomain"
+          placeholder="dominio próprio (futuro)"
+          defaultValue={current.customDomain || ""}
+        />
+        <button className="border px-2 py-1" type="submit">
+          Salvar endereço
+        </button>
         <a href={`/preview/${token}`}>Pré-visualizar</a>
         {current.status === "PUBLISHED" ? <a href={publicOrigin(current.slug)}>Site no ar</a> : null}
       </form>
-      <StudioEditor
+      <StudioWorkspace
         pageId={current.id}
         clientName={current.clientName}
         slug={current.slug}
@@ -55,7 +66,9 @@ async function Editor({ params }: { params: Promise<{ id: string }> }) {
         status={current.status}
         previewUrl={`/preview/${token}`}
         publicUrl={publicOrigin(current.slug)}
-        initial={parsed.data}
+        initialPuck={parsed.data}
+        initialCanvas={canvas}
+        editorMode={current.editorMode}
         versions={current.versions.map((version) => ({
           id: version.id,
           version: version.version,
