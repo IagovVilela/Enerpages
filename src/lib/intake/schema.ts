@@ -44,6 +44,11 @@ export const intakeSchema = z.object({
 
 export type IntakePayload = z.infer<typeof intakeSchema>;
 
+export function parseIntakePayload(raw: unknown): IntakePayload | null {
+  const parsed = intakeSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
 export function emptyIntake(partial?: Partial<IntakePayload>): IntakePayload {
   // Draft-friendly: do not run min-length validators until submit.
   return {

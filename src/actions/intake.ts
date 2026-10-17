@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/db";
-import { applyIntakeToDocument, emptyIntake, intakeSchema, type IntakePayload } from "@/lib/intake/schema";
+import { applyIntakeToDocument, intakeSchema } from "@/lib/intake/schema";
 import { createIntakeToken, intakeExpiresAt, intakePublicUrl } from "@/lib/intake/token";
 import { normalizeSlug } from "@/lib/slug";
 import { SEGMENTS } from "@/puck/schema";
@@ -100,10 +100,3 @@ export async function linkIntakeToPage(inviteId: string, pageId: string) {
   });
   return { ok: true as const };
 }
-
-export function parseIntakePayload(raw: unknown): IntakePayload | null {
-  const parsed = intakeSchema.safeParse(raw);
-  return parsed.success ? parsed.data : null;
-}
-
-export { emptyIntake };
