@@ -19,12 +19,14 @@ export function ProposalPreviewModal({
   open,
   proposal,
   busy,
+  error,
   onClose,
   onEdit,
 }: {
   open: boolean;
   proposal: { label: string; direction: string; data: PageDocument } | null;
   busy?: boolean;
+  error?: string;
   onClose: () => void;
   onEdit: () => void;
 }) {
@@ -39,6 +41,8 @@ export function ProposalPreviewModal({
           <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Pré-visualização</p>
           <h2 className="text-lg font-semibold tracking-tight">{proposal.label}</h2>
           <p className="text-sm text-neutral-600">{proposal.direction}</p>
+          {error ? <p className="mt-1 max-w-xl text-sm text-[var(--studio-accent)]">{error}</p> : null}
+          {busy ? <p className="mt-1 text-sm text-neutral-600">Criando a página e abrindo o editor…</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {(
@@ -56,16 +60,17 @@ export function ProposalPreviewModal({
                 viewport === id ? "bg-[var(--studio-ink)] text-[var(--studio-bg)]" : "bg-white",
               )}
               onClick={() => setViewport(id)}
+              disabled={busy}
             >
               {label}
             </button>
           ))}
-          <button type="button" className="border px-3 py-1.5" onClick={onClose} disabled={busy}>
+          <button type="button" className="border px-3 py-1.5 disabled:opacity-50" onClick={onClose} disabled={busy}>
             Voltar
           </button>
           <button
             type="button"
-            className="bg-[var(--studio-ink)] px-3 py-1.5 text-[var(--studio-bg)] disabled:opacity-50"
+            className="bg-[var(--studio-ink)] px-3 py-1.5 text-[var(--studio-bg)] disabled:cursor-not-allowed disabled:opacity-50"
             onClick={onEdit}
             disabled={busy}
           >

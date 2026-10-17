@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import { createPage } from "@/actions/studio";
 import { ProposalPreviewModal } from "@/components/proposal-preview";
 import { RequestProgress } from "@/components/request-progress";
@@ -11,7 +10,6 @@ import { SEGMENTS, type PageDocument } from "@/puck/schema";
 type Proposal = { label: string; direction: string; source: "ai" | "fallback"; data: PageDocument };
 
 export function BriefingForm() {
-  const router = useRouter();
   const busyRef = useRef(false);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [warning, setWarning] = useState("");
@@ -100,7 +98,8 @@ export function BriefingForm() {
         setError(result.error);
         return;
       }
-      router.push(`/pages/${result.id}`);
+      // Hard navigation evita ficar preso no modal se o App Router falhar ao hidratar.
+      window.location.assign(`/pages/${result.id}`);
     } catch {
       setError("Não foi possível abrir o editor. Tente de novo.");
     } finally {
@@ -237,11 +236,15 @@ export function BriefingForm() {
         open={Boolean(preview)}
         proposal={preview}
         busy={opening}
+        error={error}
         onClose={() => {
-          if (!opening) setPreview(null);
+          if (!opening) {
+            setPreview(null);
+            setError("");
+          }
         }}
         onEdit={() => {
-          if (preview) void openInEditor(preview);
+          if (preview && !opening) void openInEditor(preview);
         }}
       />
     </div>

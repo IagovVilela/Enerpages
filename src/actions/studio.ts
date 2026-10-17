@@ -77,6 +77,18 @@ export async function unpublishPage(pageId: string) {
   updateTag("pages:index");
 }
 
+async function uniqueSlug(base: string) {
+  const error = slugError(base);
+  if (error) return { ok: false as const, error };
+  const taken = await prisma.page.findUnique({ where: { slug: base }, select: { id: true } });
+  if (!taken) return { ok: true as const, slug: base };
+  const suffix = Date.now().toString().slice(-4);
+  const candidate = `${base.slice(0, Math.max(1, 63 - suffix.length - 1))}-${suffix}`;
+  const stillTaken = await prisma.page.findUnique({ where: { slug: candidate }, select: { id: true } });
+  if (stillTaken) return { ok: false as const, error: "Esse subdomínio já existe. Escolha outro." };
+  return { ok: true as const, slug: candidate };
+}
+
 export async function createPage(input: {
   clientName: string;
   segment: string;
@@ -85,35 +97,47 @@ export async function createPage(input: {
   templateId?: PageTemplateId | string;
 }) {
   await requireAdmin();
-  const slug = input.slug;
-  const error = slugError(slug);
-  if (error) return { ok: false as const, error };
-  const taken = await prisma.page.findUnique({ where: { slug } });
-  if (taken) return { ok: false as const, error: "Esse subdomínio já existe." };
+  const resolved = await uniqueSlug(input.slug);
+  if (!resolved.ok) return resolved;
+  const slug = resolved.slug;
   const segment = SEGMENTS.find((item) => item === input.segment) ?? "local";
   const templateId = input.templateId && isPageTemplateId(input.templateId) ? input.templateId : null;
   const data =
     input.data ??
     (templateId ? buildPageTemplate(templateId, input.clientName, segment) : blankDocument(input.clientName, segment));
-  const parsed = pageDataSchema.parse(data);
-  const page = await prisma.page.create({
-    data: {
-      slug,
-      clientName: input.clientName,
-      segment: input.segment,
-      draftData: parsed,
-      ...seo(parsed),
-      versions: {
-        create: {
-          version: 1,
-          data: parsed,
-          source: "MANUAL",
-          label: templateId ? `Modelo ${templateId}` : "Criação",
+  const parsed = pageDataSchema.safeParse(data);
+  if (!parsed.success) {
+    return {
+      ok: false as const,
+      error: "A proposta gerada está inválida para o editor. Gere de novo ou use outra proposta.",
+    };
+  }
+  try {
+    const page = await prisma.page.create({
+      data: {
+        slug,
+        clientName: input.clientName,
+        segment: input.segment,
+        draftData: parsed.data,
+        ...seo(parsed.data),
+        versions: {
+          create: {
+            version: 1,
+            data: parsed.data,
+            source: "MANUAL",
+            label: templateId ? `Modelo ${templateId}` : "Criação",
+          },
         },
       },
-    },
-  });
-  return { ok: true as const, id: page.id };
+    });
+    return { ok: true as const, id: page.id };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/unique|slug/i.test(message)) {
+      return { ok: false as const, error: "Esse subdomínio acabou de ser usado. Tente de novo." };
+    }
+    return { ok: false as const, error: "Não foi possível criar a página. Tente de novo." };
+  }
 }
 
 export async function applyPageTemplate(pageId: string, templateId: string, clientName: string, segment: string) {
