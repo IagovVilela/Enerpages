@@ -40,11 +40,14 @@ export function BriefingForm() {
     setError("");
     setWarning("");
 
+    const controller = new AbortController();
+    const kill = window.setTimeout(() => controller.abort(), 45_000);
     try {
       const response = await fetch("/api/ai/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(briefing),
+        signal: controller.signal,
       });
       const payload = (await response.json().catch(() => null)) as
         | { proposals?: Proposal[]; warning?: string; error?: string }
@@ -55,9 +58,14 @@ export function BriefingForm() {
       }
       setProposals(payload.proposals);
       setWarning(payload.warning || "");
-    } catch {
-      setError("Falha de rede ao gerar propostas. Verifique a conexão e tente outra vez.");
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        setError("A geração demorou demais e foi interrompida. Tente de novo — o gerador local responde mais rápido.");
+      } else {
+        setError("Falha de rede ao gerar propostas. Verifique a conexão e tente outra vez.");
+      }
     } finally {
+      window.clearTimeout(kill);
       busyRef.current = false;
       setPending(false);
     }

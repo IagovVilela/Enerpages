@@ -288,15 +288,33 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 export async function generateProposals(briefing: Briefing) {
+  const fallbacks: Proposal[] = DIRECTIONS.map((direction, index) => ({
+    label: `Proposta ${index + 1}`,
+    direction,
+    source: "fallback" as const,
+    data: generateDeterministic(briefing, index),
+  }));
+
   if (providerOrder().length === 0) {
     return {
-      proposals: DIRECTIONS.map((direction, index) => ({
-        label: `Proposta ${index + 1}`,
-        direction,
-        source: "fallback" as const,
-        data: generateDeterministic(briefing, index),
-      })),
+      proposals: fallbacks,
       warning: "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.",
     };
   }
@@ -304,19 +322,27 @@ export async function generateProposals(briefing: Briefing) {
   const state: GenerateState = {
     quotaExhausted: false,
     started: Date.now(),
-    budgetMs: 55_000,
+    // Proxy Railway corta ~60s; respondemos bem antes para evitar 499.
+    budgetMs: 22_000,
   };
 
-  // Três propostas em paralelo: o tempo total ≈ a mais lenta, não a soma.
-  const proposals = await Promise.all(
-    DIRECTIONS.map((_, direction) => generateOneProposal(briefing, direction, state)),
-  );
-
-  if (state.warning && proposals.some((item) => item.source === "ai") && /cota gratuita acabou/i.test(state.warning)) {
-    state.warning = "Limite da cota gratuita atingido; parte das propostas usou o gerador local.";
+  // 1 proposta via IA (rápida) + 2 arquétipos locais — evita 6 chamadas e timeout 499.
+  try {
+    const primary = await withTimeout(generateOneProposal(briefing, 0, state), 20_000);
+    const proposals = [primary, fallbacks[1], fallbacks[2]];
+    if (state.warning && primary.source === "ai" && /cota gratuita acabou/i.test(state.warning)) {
+      state.warning = "Limite da cota gratuita atingido; parte das propostas usou o gerador local.";
+    }
+    if (primary.source === "fallback" && !state.warning) {
+      state.warning = "A IA demorou ou falhou; as propostas usam o gerador local (ainda editáveis).";
+    }
+    return { proposals, warning: state.warning };
+  } catch {
+    return {
+      proposals: fallbacks,
+      warning: "A geração por IA passou do tempo limite. As propostas usam o gerador local.",
+    };
   }
-
-  return { proposals, warning: state.warning };
 }
 
 export async function rewriteBlock(briefing: Briefing, block: Block, mode: "text" | "style" | "section") {

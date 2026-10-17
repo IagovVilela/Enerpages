@@ -43,7 +43,7 @@ async function readError(response: Response) {
   throw new AiError(body.slice(0, 300) || response.statusText, response.status);
 }
 
-const AI_FETCH_MS = 22_000;
+const AI_FETCH_MS = 10_000;
 
 function aiFetch(input: string, init?: RequestInit) {
   return fetch(input, { ...init, signal: AbortSignal.timeout(AI_FETCH_MS) });

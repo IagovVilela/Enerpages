@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
 import { MotionPreset } from "@/puck/motion";
+import { isExternalHref, resolveActionHref } from "@/lib/action-href";
 import { layoutInnerClass, layoutSectionClass } from "@/puck/layout";
 import type { Animation, Layout, PropsOf, Visibility } from "@/puck/schema";
-import { Media } from "@/puck/theme";
+import { Media, usePage } from "@/puck/theme";
 import { visibilityClass } from "@/puck/visibility";
 import { cn } from "@/lib/cn";
 
@@ -62,6 +63,12 @@ export function Text(props: PropsOf<"Text">) {
 }
 
 export function Button(props: PropsOf<"Button">) {
+  const page = usePage();
+  const href = resolveActionHref(props.href, {
+    phone: page.settings.whatsapp.phone,
+    message: page.settings.whatsapp.message,
+  });
+  const external = isExternalHref(href);
   const className = {
     solid: "rounded-[var(--radius)] bg-[var(--color-primary)] text-[var(--color-background)]",
     outline: "rounded-[var(--radius)] border-2 border-current",
@@ -74,7 +81,15 @@ export function Button(props: PropsOf<"Button">) {
   }[props.variant];
   return (
     <Frame anchor={props.anchor} visibility={props.visibility} animation={props.animation} layout={props.layout} className={cn("py-4", alignClass[props.align])}>
-      <a className={cn("inline-flex px-5 py-3 text-sm font-semibold", props.variant === "text" ? "px-0 py-1" : null, className)} href={props.href || "#"}>
+      <a
+        className={cn("inline-flex px-5 py-3 text-sm font-semibold", props.variant === "text" ? "px-0 py-1" : null, className)}
+        href={href}
+        target={external && !page.editing ? "_blank" : undefined}
+        rel={external && !page.editing ? "noreferrer" : undefined}
+        onClick={(event) => {
+          if (page.editing) event.preventDefault();
+        }}
+      >
         {props.label}
       </a>
     </Frame>
@@ -170,6 +185,12 @@ export function CardGrid(props: PropsOf<"CardGrid">) {
 }
 
 export function Band(props: PropsOf<"Band">) {
+  const page = usePage();
+  const href = resolveActionHref(props.href, {
+    phone: page.settings.whatsapp.phone,
+    message: page.settings.whatsapp.message,
+  });
+  const external = isExternalHref(href);
   const className = {
     solid: "bg-[var(--color-primary)] px-6 py-8 text-[var(--color-background)]",
     outline: "border border-[var(--color-foreground)] px-6 py-8",
@@ -182,7 +203,19 @@ export function Band(props: PropsOf<"Band">) {
     <Frame anchor={props.anchor} visibility={props.visibility} animation={props.animation} layout={props.layout} className={props.variant === "bleed" ? "!px-0 py-0" : "py-4"}>
       <div className={cn("flex flex-wrap items-center justify-between gap-4", className)}>
         <p className="font-display text-3xl md:text-5xl">{props.text}</p>
-        {props.label ? <a className="text-sm uppercase tracking-[0.14em]" href={props.href || "#"}>{props.label}</a> : null}
+        {props.label ? (
+          <a
+            className="text-sm uppercase tracking-[0.14em]"
+            href={href}
+            target={external && !page.editing ? "_blank" : undefined}
+            rel={external && !page.editing ? "noreferrer" : undefined}
+            onClick={(event) => {
+              if (page.editing) event.preventDefault();
+            }}
+          >
+            {props.label}
+          </a>
+        ) : null}
       </div>
     </Frame>
   );

@@ -498,7 +498,9 @@ function HistoryTools({ pageId, versions, onRestore }: { pageId: string; version
               }}
             >
               v{version.version} · {version.label || version.source}
-              <span className="block text-[10px] text-neutral-500">{new Date(version.createdAt).toLocaleString("pt-BR")}</span>
+              <span className="block text-[10px] text-neutral-500" suppressHydrationWarning>
+                {version.createdAt.slice(0, 16).replace("T", " ")}
+              </span>
             </button>
           ))}
         </div>

@@ -1,9 +1,17 @@
 "use client";
 
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Animation } from "@/puck/schema";
 import { cn } from "@/lib/cn";
+
+/** Avoid SSR/client text mismatch from prefers-reduced-motion. */
+function useMotionReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
+  const reduce = useReducedMotion();
+  return { ready, reduce: Boolean(reduce) };
+}
 
 const ease = {
   easeOut: [0.22, 1, 0.36, 1] as const,
@@ -23,12 +31,12 @@ export function MotionPreset({
   children: ReactNode;
   preserveLcp?: boolean;
 }) {
-  const reduce = useReducedMotion();
+  const { ready, reduce } = useMotionReady();
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], [28, -28]);
 
-  if (!animation || reduce || animation.preset === "none" || animation.preset === "split-words" || animation.preset === "split-chars") {
+  if (!ready || !animation || reduce || animation.preset === "none" || animation.preset === "split-words" || animation.preset === "split-chars") {
     return (
       <div ref={ref} className={className}>
         {children}
@@ -78,8 +86,9 @@ export function MotionPreset({
 }
 
 export function SplitText({ text, mode, className }: { text: string; mode: "words" | "chars"; className?: string }) {
-  const reduce = useReducedMotion();
-  if (reduce) return <span className={className}>{text}</span>;
+  const { ready, reduce } = useMotionReady();
+  // Same markup on server and first client paint — avoids React #418 text mismatch.
+  if (!ready || reduce) return <span className={className}>{text}</span>;
   const parts = mode === "words" ? text.split(" ") : [...text];
   return (
     <span className={className} aria-label={text}>
@@ -102,10 +111,10 @@ export function SplitText({ text, mode, className }: { text: string; mode: "word
 }
 
 export function Counter({ value }: { value: string }) {
-  const reduce = useReducedMotion();
+  const { ready, reduce } = useMotionReady();
   const match = value.match(/-?\d[\d.]*/);
   const number = match ? Number(match[0].replace(/\./g, "")) : null;
-  if (reduce || number === null || Number.isNaN(number)) return <span>{value}</span>;
+  if (!ready || reduce || number === null || Number.isNaN(number)) return <span>{value}</span>;
   return (
     <motion.span
       initial={{ opacity: 0.4 }}

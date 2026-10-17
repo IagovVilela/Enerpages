@@ -2,6 +2,7 @@
 
 import { LayoutGroup, motion } from "motion/react";
 import { useMemo, useState, type FormEvent } from "react";
+import { isExternalHref, resolveActionHref, whatsappHref } from "@/lib/action-href";
 import { Media, usePage } from "@/puck/theme";
 import type { PropsOf } from "@/puck/schema";
 import { cn } from "@/lib/cn";
@@ -132,9 +133,21 @@ export function WhatsAppAnchor({ label, phone, message }: { label: string; phone
   const page = usePage();
   const resolvedPhone = phone || page.settings.whatsapp.phone;
   const resolvedMessage = message || page.settings.whatsapp.message;
-  const href = `https://wa.me/${resolvedPhone.replace(/\D/g, "")}?text=${encodeURIComponent(resolvedMessage)}`;
+  const href = resolveActionHref(resolvedPhone ? whatsappHref(resolvedPhone, resolvedMessage) : "", {
+    phone: resolvedPhone,
+    message: resolvedMessage,
+  });
+  const external = isExternalHref(href);
   return (
-    <a className="inline-flex rounded-full bg-[#143328] px-5 py-3 text-sm text-[#f4f1ea]" href={resolvedPhone ? href : "#contato"}>
+    <a
+      className="inline-flex rounded-full bg-[#143328] px-5 py-3 text-sm text-[#f4f1ea]"
+      href={href === "#" ? "#contato" : href}
+      target={external && !page.editing ? "_blank" : undefined}
+      rel={external && !page.editing ? "noreferrer" : undefined}
+      onClick={(event) => {
+        if (page.editing) event.preventDefault();
+      }}
+    >
       {label || "WhatsApp"}
     </a>
   );

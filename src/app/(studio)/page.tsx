@@ -53,7 +53,9 @@ async function Dashboard() {
                   <h2 className="text-xl">{page.clientName}</h2>
                   <span className="text-xs uppercase tracking-[0.14em]">{label(page.status)}</span>
                 </div>
-                <p className="text-sm text-neutral-600">{page.segment} · editada {page.updatedAt.toLocaleString("pt-BR")}</p>
+                <p className="text-sm text-neutral-600" suppressHydrationWarning>
+                  {page.segment} · editada {page.updatedAt.toISOString().slice(0, 16).replace("T", " ")} UTC
+                </p>
                 <p className="text-sm">{views} visitas · {page.leads.length} leads</p>
                 <div className="flex flex-wrap gap-3 text-sm">
                   <Link href={`/pages/${page.id}`}>Editar</Link>

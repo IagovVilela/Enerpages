@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
@@ -8,6 +8,26 @@ export function assertUpload(file: { type: string; size: number }) {
   if (!ALLOWED.has(file.type)) throw new Error("Envie JPG, PNG, WEBP, GIF, MP4 ou WEBM.");
   const limit = file.type.startsWith("video/") ? 20 * 1024 * 1024 : 8 * 1024 * 1024;
   if (file.size > limit) throw new Error("Arquivo grande demais.");
+}
+
+/** Local disk root — prefer Railway volume via UPLOAD_DIR=/data/uploads */
+export function uploadRoot() {
+  return process.env.UPLOAD_DIR?.trim() || path.join(process.cwd(), "storage", "uploads");
+}
+
+export function resolveUploadPath(relativeKey: string) {
+  const normalized = relativeKey.replace(/^\/+/, "").replace(/\.\./g, "");
+  const full = path.resolve(uploadRoot(), normalized);
+  const root = path.resolve(uploadRoot());
+  if (!full.startsWith(root + path.sep) && full !== root) {
+    throw new Error("Caminho de upload inválido.");
+  }
+  return full;
+}
+
+export async function readUpload(relativeKey: string) {
+  const full = resolveUploadPath(relativeKey);
+  return readFile(full);
 }
 
 export async function storeUpload(file: File) {
@@ -38,7 +58,7 @@ export async function storeUpload(file: File) {
     return { url: `${base}/${key}` };
   }
 
-  const target = path.join(process.cwd(), "public", "uploads", key);
+  const target = resolveUploadPath(key);
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, body);
   return { url: `/uploads/${key}` };

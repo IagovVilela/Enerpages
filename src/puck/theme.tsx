@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { bgArtStyle } from "@/puck/bg-art";
 import { fontAssets } from "@/puck/fonts";
+import { isExternalHref, resolveActionHref } from "@/lib/action-href";
 import { CanvasUpload } from "@/puck/media-upload";
 import { isVideoSrc, type ImageField, type RootProps, type Theme } from "@/puck/schema";
 import { cn } from "@/lib/cn";
@@ -79,9 +80,12 @@ export function ThemeProvider({
         {settings.whatsapp.floating && settings.whatsapp.phone ? (
           <a
             className="fixed bottom-5 right-5 z-40 rounded-full bg-[var(--color-primary)] px-4 py-3 text-sm text-[var(--color-background)] shadow-[var(--shadow)]"
-            href={`https://wa.me/${settings.whatsapp.phone.replace(/\D/g, "")}?text=${encodeURIComponent(settings.whatsapp.message)}`}
-            target="_blank"
-            rel="noreferrer"
+            href={resolveActionHref("", { phone: settings.whatsapp.phone, message: settings.whatsapp.message })}
+            target={editing ? undefined : "_blank"}
+            rel={editing ? undefined : "noreferrer"}
+            onClick={(event) => {
+              if (editing) event.preventDefault();
+            }}
           >
             WhatsApp
           </a>
@@ -179,6 +183,11 @@ export function ThemeLink({
 }) {
   const page = usePage();
   const button = page.theme.button;
+  const resolved = resolveActionHref(href, {
+    phone: page.settings.whatsapp.phone,
+    message: page.settings.whatsapp.message,
+  });
+  const external = isExternalHref(resolved);
   const className = cn(
     "inline-flex items-center justify-center gap-2 text-sm transition-transform duration-200 hover:-translate-y-0.5",
     tone === "ghost" || button === "underline"
@@ -192,9 +201,16 @@ export function ThemeLink({
   return (
     <a
       className={className}
-      href={href || "#"}
-      onClick={() => {
-        if (page.editing || !page.settings.slug) return;
+      href={resolved}
+      target={external && !page.editing ? "_blank" : undefined}
+      rel={external && !page.editing ? "noreferrer" : undefined}
+      onClick={(event) => {
+        if (page.editing) {
+          // No editor, não navega — só seleciona o bloco no Puck.
+          event.preventDefault();
+          return;
+        }
+        if (!page.settings.slug) return;
         void fetch("/api/analytics", {
           method: "POST",
           headers: { "content-type": "application/json" },
