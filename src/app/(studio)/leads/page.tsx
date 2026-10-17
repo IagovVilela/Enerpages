@@ -36,7 +36,9 @@ async function Leads() {
               const payload = lead.payload as { name?: string; email?: string; message?: string };
               return (
                 <tr key={lead.id} className="border-b">
-                  <td className="p-3">{lead.createdAt.toLocaleString("pt-BR")}</td>
+                  <td className="p-3" suppressHydrationWarning>
+                    {lead.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC
+                  </td>
                   <td className="p-3"><Link href={`/pages/${lead.pageId}`}>{lead.page.clientName}</Link></td>
                   <td className="p-3">{payload.name} · {payload.email}<br />{payload.message}</td>
                 </tr>

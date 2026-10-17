@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { prisma } from "@/lib/db";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm"]);
 
@@ -19,15 +20,33 @@ export function resolveUploadPath(relativeKey: string) {
   const normalized = relativeKey.replace(/^\/+/, "").replace(/\.\./g, "");
   const full = path.resolve(uploadRoot(), normalized);
   const root = path.resolve(uploadRoot());
-  if (!full.startsWith(root + path.sep) && full !== root) {
+  const prefix = root.endsWith(path.sep) ? root : root + path.sep;
+  if (full !== root && !full.startsWith(prefix)) {
     throw new Error("Caminho de upload inválido.");
   }
   return full;
 }
 
-export async function readUpload(relativeKey: string) {
-  const full = resolveUploadPath(relativeKey);
-  return readFile(full);
+export async function readUpload(relativeKey: string): Promise<{ data: Buffer; mimeType: string }> {
+  const key = relativeKey.replace(/^\/+/, "").replace(/\.\./g, "");
+  const fromDb = await prisma.mediaAsset.findUnique({ where: { key } });
+  if (fromDb) {
+    return { data: Buffer.from(fromDb.bytes), mimeType: fromDb.mimeType };
+  }
+
+  const full = resolveUploadPath(key);
+  const data = await readFile(full);
+  const ext = key.split(".").pop()?.toLowerCase() || "";
+  const TYPES: Record<string, string> = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    mp4: "video/mp4",
+    webm: "video/webm",
+  };
+  return { data, mimeType: TYPES[ext] || "application/octet-stream" };
 }
 
 export async function storeUpload(file: File) {
@@ -58,8 +77,21 @@ export async function storeUpload(file: File) {
     return { url: `${base}/${key}` };
   }
 
-  const target = resolveUploadPath(key);
-  await mkdir(path.dirname(target), { recursive: true });
-  await writeFile(target, body);
+  // Fonte da verdade em produção: Postgres (sobrevive a redeploy).
+  await prisma.mediaAsset.upsert({
+    where: { key },
+    create: { key, mimeType: file.type, bytes: body, size: body.length },
+    update: { mimeType: file.type, bytes: body, size: body.length },
+  });
+
+  // Espelho em disco quando houver volume (cache local).
+  try {
+    const target = resolveUploadPath(key);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, body);
+  } catch {
+    /* volume ausente / read-only — DB já salvou */
+  }
+
   return { url: `/uploads/${key}` };
 }

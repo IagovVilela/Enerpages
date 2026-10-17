@@ -96,6 +96,18 @@ model AiCache {
   createdAt DateTime @default(now())
 }
 
+/** Uploads em produção (Railway): disco efêmero quebra; Postgres persiste. */
+model MediaAsset {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  mimeType  String
+  bytes     Bytes
+  size      Int
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model RateBucket {
   key     String   @id
   count   Int

@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Animation } from "@/puck/schema";
 import { cn } from "@/lib/cn";
 
-/** Avoid SSR/client text mismatch from prefers-reduced-motion. */
+/** Animations only after mount — avoids SSR/client text mismatch (React #418). */
 function useMotionReady() {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
@@ -36,6 +36,7 @@ export function MotionPreset({
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
   const y = useTransform(scrollYProgress, [0, 1], [28, -28]);
 
+  // Always the same DOM text tree on server + first client paint.
   if (!ready || !animation || reduce || animation.preset === "none" || animation.preset === "split-words" || animation.preset === "split-chars") {
     return (
       <div ref={ref} className={className}>
@@ -85,44 +86,11 @@ export function MotionPreset({
   );
 }
 
-export function SplitText({ text, mode, className }: { text: string; mode: "words" | "chars"; className?: string }) {
-  const { ready, reduce } = useMotionReady();
-  // Same markup on server and first client paint — avoids React #418 text mismatch.
-  if (!ready || reduce) return <span className={className}>{text}</span>;
-  const parts = mode === "words" ? text.split(" ") : [...text];
-  return (
-    <span className={className} aria-label={text}>
-      {parts.map((part, index) => (
-        <motion.span
-          key={`${part}-${index}`}
-          className="inline-block"
-          initial={{ opacity: 0, y: "0.35em" }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ delay: Math.min(index * 0.035, 0.45), duration: 0.45 }}
-          aria-hidden
-        >
-          {part}
-          {mode === "words" ? "\u00A0" : null}
-        </motion.span>
-      ))}
-    </span>
-  );
+/** Keep text as a single node forever — split animation caused React #418 (nbsp vs space). */
+export function SplitText({ text, className }: { text: string; mode?: "words" | "chars"; className?: string }) {
+  return <span className={className}>{text}</span>;
 }
 
 export function Counter({ value }: { value: string }) {
-  const { ready, reduce } = useMotionReady();
-  const match = value.match(/-?\d[\d.]*/);
-  const number = match ? Number(match[0].replace(/\./g, "")) : null;
-  if (!ready || reduce || number === null || Number.isNaN(number)) return <span>{value}</span>;
-  return (
-    <motion.span
-      initial={{ opacity: 0.4 }}
-      whileInView={{ opacity: 1 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.6 }}
-    >
-      {value}
-    </motion.span>
-  );
+  return <span>{value}</span>;
 }

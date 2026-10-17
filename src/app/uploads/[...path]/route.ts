@@ -1,14 +1,6 @@
 import { readUpload } from "@/lib/storage";
 
-const TYPES: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  mp4: "video/mp4",
-  webm: "video/webm",
-};
+export const runtime = "nodejs";
 
 export async function GET(_request: Request, context: { params: Promise<{ path: string[] }> }) {
   const { path: parts } = await context.params;
@@ -17,11 +9,10 @@ export async function GET(_request: Request, context: { params: Promise<{ path: 
     return new Response("Not found", { status: 404 });
   }
   try {
-    const data = await readUpload(key);
-    const ext = key.split(".").pop()?.toLowerCase() || "";
-    return new Response(data, {
+    const file = await readUpload(key);
+    return new Response(new Uint8Array(file.data), {
       headers: {
-        "content-type": TYPES[ext] || "application/octet-stream",
+        "content-type": file.mimeType,
         "cache-control": "public, max-age=31536000, immutable",
       },
     });
