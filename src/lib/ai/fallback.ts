@@ -209,8 +209,12 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
   }
 }
 
+function freshBlockId(type: BlockType) {
+  return `${type}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export function sampleBlock(type: BlockType): Block {
-  return makeBlock(type, chrome(type, 1, "fade", 0), {
+  return makeBlock(type, { ...chrome(type, 1, "fade", 0), id: freshBlockId(type) }, {
     name: "Seu nome",
     intro: "Texto para substituir.",
     services: ["Item um", "Item dois", "Item três"],

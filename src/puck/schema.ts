@@ -424,6 +424,22 @@ export function emptyImage(): ImageField {
   return { src: "", alt: "", placeholder: true };
 }
 
+/** Garante props.id únicos no content (Puck quebra com keys duplicadas tipo Panel-1). */
+export function ensureUniqueBlockIds(document: PageDocument): PageDocument {
+  const seen = new Set<string>();
+  const content = document.content.map((block, index) => {
+    const current = typeof block.props.id === "string" ? block.props.id : "";
+    let id = current || `${block.type}-${index + 1}`;
+    if (seen.has(id)) {
+      id = `${block.type}-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 7)}`;
+    }
+    seen.add(id);
+    if (id === current) return block;
+    return { ...block, props: { ...block.props, id } } as Block;
+  });
+  return { ...document, content };
+}
+
 export function defaultAnimation(preset: Animation["preset"] = "fade"): Animation {
   return { preset, duration: 0.6, delay: 0, easing: "easeOut", trigger: "view" };
 }

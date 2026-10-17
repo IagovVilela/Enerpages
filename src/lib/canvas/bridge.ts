@@ -7,7 +7,7 @@ import {
   type SiteCanvasConfig,
 } from "@/lib/canvas/site-canvas";
 import { blankDocument } from "@/puck/defaults";
-import { pageDataSchema, SEGMENTS, type Block, type PageDocument, type Theme } from "@/puck/schema";
+import { ensureUniqueBlockIds, pageDataSchema, SEGMENTS, type Block, type PageDocument, type Theme } from "@/puck/schema";
 
 function el(partial: Omit<CanvasElement, "zIndex"> & { zIndex?: number }): CanvasElement {
   return { zIndex: 1, ...partial };
@@ -207,61 +207,75 @@ export function puckToCanvas(document: PageDocument, clientName: string): SiteCa
   };
 }
 
+function stampBlockId(block: Block, id: string): Block {
+  return { ...block, props: { ...block.props, id } } as Block;
+}
+
 function canvasElToBlock(e: CanvasElement): Block {
   const p = e.props ?? {};
+  const id = e.id || `${e.type}-${Date.now().toString(36)}`;
   switch (e.type) {
     case "hero": {
       const base = sampleBlock("Hero");
-      if (base.type !== "Hero") return base;
-      return {
-        ...base,
-        props: {
-          ...base.props,
-          eyebrow: p.eyebrow || "",
-          title: p.title || "",
-          subtitle: p.description || "",
-          primaryCta: { ...base.props.primaryCta, label: p.ctaLabel || "Contato" },
-          image: { src: p.mediaUrl || "", alt: p.title || "", placeholder: !p.mediaUrl },
+      if (base.type !== "Hero") return stampBlockId(base, id);
+      return stampBlockId(
+        {
+          ...base,
+          props: {
+            ...base.props,
+            eyebrow: p.eyebrow || "",
+            title: p.title || "",
+            subtitle: p.description || "",
+            primaryCta: { ...base.props.primaryCta, label: p.ctaLabel || "Contato" },
+            image: { src: p.mediaUrl || "", alt: p.title || "", placeholder: !p.mediaUrl },
+          },
         },
-      };
+        id,
+      );
     }
     case "text": {
       const base = sampleBlock("Text");
-      if (base.type !== "Text") return base;
-      return { ...base, props: { ...base.props, text: p.text || "" } };
+      if (base.type !== "Text") return stampBlockId(base, id);
+      return stampBlockId({ ...base, props: { ...base.props, text: p.text || "" } }, id);
     }
     case "button": {
       const base = sampleBlock("Button");
-      if (base.type !== "Button") return base;
-      return { ...base, props: { ...base.props, label: p.text || "Botão", href: p.href || "#contato" } };
+      if (base.type !== "Button") return stampBlockId(base, id);
+      return stampBlockId(
+        { ...base, props: { ...base.props, label: p.text || "Botão", href: p.href || "#contato" } },
+        id,
+      );
     }
     case "image":
     case "media": {
       const base = sampleBlock("Picture");
-      if (base.type !== "Picture") return base;
-      return {
-        ...base,
-        props: {
-          ...base.props,
-          image: { src: p.mediaUrl || "", alt: "", placeholder: !p.mediaUrl },
+      if (base.type !== "Picture") return stampBlockId(base, id);
+      return stampBlockId(
+        {
+          ...base,
+          props: {
+            ...base.props,
+            image: { src: p.mediaUrl || "", alt: "", placeholder: !p.mediaUrl },
+          },
         },
-      };
+        id,
+      );
     }
     case "navbar":
-      return sampleBlock("Navbar");
+      return stampBlockId(sampleBlock("Navbar"), id);
     case "footer": {
       const base = sampleBlock("Footer");
-      if (base.type !== "Footer") return base;
-      return { ...base, props: { ...base.props, note: p.title || base.props.note } };
+      if (base.type !== "Footer") return stampBlockId(base, id);
+      return stampBlockId({ ...base, props: { ...base.props, note: p.title || base.props.note } }, id);
     }
     case "divider":
-      return sampleBlock("Divider");
+      return stampBlockId(sampleBlock("Divider"), id);
     case "spacer":
-      return sampleBlock("Spacer");
+      return stampBlockId(sampleBlock("Spacer"), id);
     case "badge": {
       const base = sampleBlock("Badge");
-      if (base.type !== "Badge") return base;
-      return { ...base, props: { ...base.props, text: p.text || "Selo" } };
+      if (base.type !== "Badge") return stampBlockId(base, id);
+      return stampBlockId({ ...base, props: { ...base.props, text: p.text || "Selo" } }, id);
     }
     case "panel":
     case "services":
@@ -271,15 +285,18 @@ function canvasElToBlock(e: CanvasElement): Block {
     case "grid":
     default: {
       const base = sampleBlock("Panel");
-      if (base.type !== "Panel") return base;
-      return {
-        ...base,
-        props: {
-          ...base.props,
-          title: p.title || e.type,
-          body: p.description || p.text || "",
+      if (base.type !== "Panel") return stampBlockId(base, id);
+      return stampBlockId(
+        {
+          ...base,
+          props: {
+            ...base.props,
+            title: p.title || e.type,
+            body: p.description || p.text || "",
+          },
         },
-      };
+        id,
+      );
     }
   }
 }
@@ -319,6 +336,6 @@ export function canvasToPuck(canvas: SiteCanvasConfig, clientName: string, segme
     },
     content: content.length ? content : base.content,
   };
-  const parsed = pageDataSchema.safeParse(next);
+  const parsed = pageDataSchema.safeParse(ensureUniqueBlockIds(next));
   return parsed.success ? parsed.data : base;
 }

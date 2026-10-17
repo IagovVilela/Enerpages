@@ -137,7 +137,7 @@ export function LayersPanel() {
           const hiddenEverywhere = visibility && !visibility.desktop && !visibility.tablet && !visibility.mobile;
           return (
             <div
-              key={id}
+              key={`${id}-${index}`}
               className={cn(
                 "rounded-lg border px-2 py-2",
                 active ? "border-[var(--studio-accent)] bg-white" : "border-[var(--studio-line)] bg-white/70",

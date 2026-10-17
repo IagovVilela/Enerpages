@@ -21,7 +21,7 @@ import { StudioUiProvider, useStudioUi } from "@/components/studio-ui-context";
 import { config, puckDictionary } from "@/puck/config";
 import type { PageTemplateId } from "@/puck/page-templates";
 import { copyTextToClipboard, downloadPublicQrPng } from "@/lib/studio-share";
-import type { PageDocument } from "@/puck/schema";
+import { ensureUniqueBlockIds, type PageDocument } from "@/puck/schema";
 import { useStudioPuck } from "@/puck/use-studio-puck";
 import { cn } from "@/lib/cn";
 
@@ -83,19 +83,20 @@ function StudioEditorInner({
   const [message, setMessage] = useState("");
   const [tick, setTick] = useState(0);
   const [editorKey, setEditorKey] = useState(0);
-  const [document, setDocument] = useState(initial);
+  const [document, setDocument] = useState(() => ensureUniqueBlockIds(initial));
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [confirmTemplate, setConfirmTemplate] = useState<PageTemplateId | null>(null);
   const [busyTemplate, setBusyTemplate] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [mobileThemeHint, setMobileThemeHint] = useState(false);
-  const latest = useRef<Data>(initial as Data);
+  const latest = useRef<Data>(ensureUniqueBlockIds(initial) as Data);
   const skip = useRef(true);
 
   useEffect(() => {
-    setDocument(initial);
-    latest.current = initial as Data;
+    const next = ensureUniqueBlockIds(initial);
+    setDocument(next);
+    latest.current = next as Data;
   }, [initial]);
 
   useEffect(() => {
