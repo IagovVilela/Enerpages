@@ -85,26 +85,49 @@ export function Navbar(props: PropsOf<"Navbar">) {
 
 export function Hero(props: PropsOf<"Hero">) {
   const id = readId(props);
-  const title = <h1 className="font-display text-[clamp(3.2rem,9vw,8.4rem)] leading-[0.86] tracking-[-0.04em]"><Heading text={props.title} animation={props.animation} /></h1>;
+  /** cqw (não vw): mesma escala no canvas do Puck e no site publicado. */
+  const title = (
+    <h1 className="font-display text-[clamp(2.5rem,7.2cqw,5.75rem)] leading-[0.92] tracking-[-0.03em] text-balance">
+      <Heading text={props.title} animation={props.animation} />
+    </h1>
+  );
+  const ctas = (
+    <div className="flex flex-wrap gap-4">
+      {props.primaryCta.label ? <ThemeLink href={props.primaryCta.href}>{props.primaryCta.label}</ThemeLink> : null}
+      {props.secondaryCta.label ? <ThemeLink href={props.secondaryCta.href} tone="ghost">{props.secondaryCta.label}</ThemeLink> : null}
+    </div>
+  );
   const copy = (
     <div className="max-w-xl space-y-5">
       <p className="eyebrow text-xs uppercase tracking-[0.2em] text-[var(--color-primary)]">{props.eyebrow}</p>
       {title}
       <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
-      <div className="flex flex-wrap gap-4">
-        {props.primaryCta.label ? <ThemeLink href={props.primaryCta.href}>{props.primaryCta.label}</ThemeLink> : null}
-        {props.secondaryCta.label ? <ThemeLink href={props.secondaryCta.href} tone="ghost">{props.secondaryCta.label}</ThemeLink> : null}
-      </div>
+      {ctas}
     </div>
   );
   const immersive = <div className="relative grid min-h-[88svh] items-end"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full" /><div className="relative max-w-3xl bg-[var(--color-background)]/88 p-6 md:p-10">{copy}</div></div>;
   const body = {
     split: <div className="grid items-end gap-10 lg:grid-cols-12"><div className="lg:col-span-7">{copy}</div><Media image={props.image} blockId={id} path="image" className="min-h-[28rem] lg:col-span-5" /></div>,
-    editorial: <div className="relative"><div className="max-w-[14ch]">{title}</div><div className="mt-8 grid gap-8 md:grid-cols-[1.2fr_0.8fr] md:items-end"><p className="max-w-sm text-lg">{props.subtitle}</p><Media image={props.image} blockId={id} path="image" className="min-h-80 md:-mt-24" /></div></div>,
+    editorial: (
+      <div className="grid min-h-[min(88svh,52rem)] items-end gap-10 md:grid-cols-12">
+        <div className="space-y-5 md:col-span-7">
+          <p className="eyebrow text-xs uppercase tracking-[0.2em] text-[var(--color-primary)]">{props.eyebrow}</p>
+          {title}
+          <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
+          {ctas}
+        </div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[28rem]" />
+      </div>
+    ),
     immersive,
-    asymmetric: <div className="grid gap-8 md:grid-cols-[auto_1fr]"><p className="text-xs uppercase tracking-[0.28em] md:[writing-mode:vertical-rl]">{props.eyebrow}</p><div className="md:ml-[8vw]">{copy}<div className="mt-8 md:w-2/3 md:justify-self-end"><Media image={props.image} blockId={id} path="image" className="min-h-72" /></div></div></div>,
+    asymmetric: <div className="grid gap-8 md:grid-cols-[auto_1fr]"><p className="text-xs uppercase tracking-[0.28em] md:[writing-mode:vertical-rl]">{props.eyebrow}</p><div className="md:ml-[min(8cqw,4rem)]">{copy}<div className="mt-8 md:w-2/3 md:justify-self-end"><Media image={props.image} blockId={id} path="image" className="min-h-72" /></div></div></div>,
     cinematic: <div className="relative grid min-h-[88svh] items-end bg-[#0f1419] text-[#fafafa]"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-70" /><div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div></div>,
-    light: <div className="relative grid min-h-[70svh] items-end bg-[#f5f0e8] text-[#1c1917]"><div className="relative max-w-3xl p-6 md:p-10">{copy}</div><Media image={props.image} blockId={id} path="image" className="min-h-72 md:absolute md:inset-y-10 md:right-10 md:w-[40%]" /></div>,
+    light: (
+      <div className="relative grid min-h-[min(88svh,48rem)] items-end gap-8 bg-[#f5f0e8] text-[#1c1917] md:grid-cols-12 md:gap-10">
+        <div className="relative max-w-3xl p-6 md:col-span-7 md:p-10">{copy}</div>
+        <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[28rem]" />
+      </div>
+    ),
     brand: <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-40" /><div className="relative max-w-3xl p-6 md:p-10">{copy}</div></div>,
   }[props.variant];
   return <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp><Section anchor={props.anchor || "topo"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
@@ -145,7 +168,7 @@ export function About(props: PropsOf<"About">) {
       <div className="grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
         <div className="max-w-5xl">
           <p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p>
-          <h2 className="mt-4 font-display text-[clamp(2.8rem,6vw,6rem)] leading-[0.9]">{props.title}</h2>
+          <h2 className="mt-4 font-display text-[clamp(2.5rem,6.5cqw,5.25rem)] leading-[0.9] text-balance">{props.title}</h2>
           <p className="mt-8 max-w-2xl text-xl leading-9">{props.body}</p>
         </div>
         <Media image={props.image} blockId={id} path="image" className="min-h-80" />
@@ -533,7 +556,7 @@ export function Cta(props: PropsOf<"Cta">) {
   const body = {
     band: <div className="flex flex-wrap items-end justify-between gap-6 bg-[var(--color-primary)] px-6 py-10 text-[var(--color-background)]"><div><p className="text-xs uppercase tracking-[0.16em]">{props.eyebrow}</p><h2 className="font-display text-5xl">{props.title}</h2></div>{action}</div>,
     split: <div className="grid items-center gap-6 md:grid-cols-2"><h2 className="font-display text-6xl leading-none">{props.title}</h2><div><p>{props.subtitle}</p><div className="mt-4">{action}</div></div></div>,
-    poster: <div className="py-8"><p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p><h2 className="font-display text-[clamp(3rem,8vw,7rem)] leading-[0.85]">{props.title}</h2><div className="mt-6">{action}</div></div>,
+    poster: <div className="py-8"><p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p><h2 className="font-display text-[clamp(2.5rem,7cqw,5.5rem)] leading-[0.9] text-balance">{props.title}</h2><div className="mt-6">{action}</div></div>,
     inline: <div className="flex flex-wrap items-center justify-between gap-4 border-y border-[var(--color-border)] py-6"><p className="text-xl">{props.title}</p>{action}</div>,
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
@@ -551,7 +574,7 @@ export function Footer(props: PropsOf<"Footer">) {
     columns: <div className="grid gap-8 md:grid-cols-3"><strong className="font-display text-3xl">{props.logo}</strong><p className="max-w-sm text-sm leading-6">{props.note}</p>{links}</div>,
     centered: <div className="grid justify-items-center gap-4 text-center"><strong className="font-display text-4xl">{props.logo}</strong><p className="max-w-md text-sm">{props.note}</p>{links}</div>,
     bar: <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6"><span>{props.logo}</span>{links}</div>,
-    editorial: <div><p className="font-display text-[clamp(3rem,10vw,8rem)] leading-none">{props.logo}</p><p className="mt-4 max-w-xl">{props.note}</p></div>,
+    editorial: <div><p className="font-display text-[clamp(2.5rem,8cqw,5.5rem)] leading-none text-balance">{props.logo}</p><p className="mt-4 max-w-xl">{props.note}</p></div>,
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><div className="space-y-8">{body}<p className="text-xs uppercase tracking-[0.14em]">{props.legal}</p></div></Section></Shell>;
 }

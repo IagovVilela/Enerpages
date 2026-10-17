@@ -48,8 +48,8 @@ const alignClass = {
 
 export function Text(props: PropsOf<"Text">) {
   const className = {
-    display: "font-display text-[clamp(2.8rem,7vw,6rem)] leading-[0.9]",
-    title: "font-display text-[clamp(1.8rem,4vw,3rem)] leading-tight",
+    display: "font-display text-[clamp(2.5rem,6.5cqw,5.25rem)] leading-[0.9] text-balance",
+    title: "font-display text-[clamp(1.6rem,3.5cqw,2.75rem)] leading-tight text-balance",
     lead: "max-w-3xl text-2xl leading-snug md:text-4xl",
     body: "max-w-2xl text-lg leading-8",
     caption: "text-xs uppercase tracking-[0.18em]",

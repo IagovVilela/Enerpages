@@ -21,6 +21,9 @@ body:has(.landing) {
 
 .landing {
   font-family: var(--font-body), Georgia, sans-serif;
+  /* Tipografia em cqw escala pelo canvas do editor e pela página publicada igual. */
+  container-type: inline-size;
+  container-name: landing;
 }
 
 .landing h1,
