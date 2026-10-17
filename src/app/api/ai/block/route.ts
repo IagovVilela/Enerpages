@@ -19,14 +19,8 @@ export async function POST(request: Request) {
     clientName: page.clientName,
     segment: SEGMENTS.find((item) => item === page.segment) ?? "local",
     goal: "captar",
-    audience: "",
-    tone: "",
-    differentials: "",
-    services: "",
-    colors: "",
-    references: "",
     slug: page.slug,
-  } satisfies Briefing);
+  });
   const next = await rewriteBlock(briefing, block.data, body.mode as "text" | "style" | "section");
   return Response.json({ block: next });
 }

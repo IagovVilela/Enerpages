@@ -115,13 +115,17 @@ function StudioEditorInner({
       const result = await saveDraft(pageId, latest.current);
       if (result.ok) {
         setDirty(false);
-        setStatus(pageStatus === "PUBLISHED" ? "Salvo · republicar para ir ao ar" : "Salvo");
+        setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
+        if (pageStatus === "PUBLISHED") {
+          toast("Rascunho salvo. O site público só muda depois de Publicar.");
+        }
       } else {
         setStatus(result.error);
+        toast(result.error || "Não foi possível salvar.");
       }
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [pageId, tick, pageStatus]);
+  }, [pageId, tick, pageStatus, toast]);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -132,9 +136,11 @@ function StudioEditorInner({
           const result = await saveDraft(pageId, latest.current);
           if (result.ok) {
             setDirty(false);
-            setStatus(pageStatus === "PUBLISHED" ? "Salvo · republicar para ir ao ar" : "Salvo");
+            setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
+            toast(pageStatus === "PUBLISHED" ? "Rascunho salvo. Publique para ir ao ar." : "Salvo.");
           } else {
             setStatus(result.error);
+            toast(result.error || "Não foi possível salvar.");
           }
         })();
       }

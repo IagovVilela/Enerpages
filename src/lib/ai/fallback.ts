@@ -8,8 +8,11 @@ import {
   resolveDifferentials,
   resolveReferences,
 } from "@/lib/ai/segment-copy";
+import { getTemplateStyle, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { ensureThemeContrast } from "@/lib/theme-contrast";
 import {
   BG_ARTS,
+  PERSONALITIES,
   VARIANTS,
   defaultAnimation,
   defaultLayout,
@@ -75,19 +78,36 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
   const archetype = ARCHETYPES[briefing.segment] ?? ARCHETYPES.local;
   const bank = getSegmentCopy(briefing.segment);
   const seed = hashString(
-    `${briefing.clientName}:${briefing.segment}:${briefing.goal}:${direction}:${briefing.tone}`,
+    `${briefing.clientName}:${briefing.segment}:${briefing.goal}:${direction}:${briefing.tone}:${briefing.templateId}:${briefing.headline}`,
   );
   const dir = ((direction % 3) + 3) % 3;
+  const templateId = resolveProposalTemplate(briefing, dir);
+  const template = getTemplateStyle(templateId);
 
+  const personalityFromBriefing =
+    briefing.personality && (PERSONALITIES as readonly string[]).includes(briefing.personality)
+      ? briefing.personality
+      : null;
   const personality =
+    (dir === 0 && personalityFromBriefing) ||
+    template.personality ||
     archetype.personalities[(seed + dir) % archetype.personalities.length]!;
-  const colors = { ...archetype.palettes[(seed + dir * 2) % archetype.palettes.length]! };
-  const colorMatch = briefing.colors.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
-  if (colorMatch) colors.primary = colorMatch[0];
 
-  const motion = archetype.motions[dir] ?? archetype.motions[0]!;
+  let colors = { ...template.colors };
+  const primaryMatch = briefing.colors?.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
+  if (primaryMatch) {
+    colors.primary = primaryMatch[0];
+    colors.accent = primaryMatch[0];
+  }
+  const bgMatch = briefing.backgroundColor?.match(/#(?:[0-9a-fA-F]{3}){1,2}/);
+  if (bgMatch && dir === 0) {
+    colors.background = bgMatch[0];
+  }
+  colors = ensureThemeContrast(colors);
+
+  const motion = template.motion || archetype.motions[dir] || archetype.motions[0]!;
   const bgArt = (
-    briefing.references.toLowerCase().includes("limpo")
+    briefing.references?.toLowerCase().includes("limpo")
       ? "none"
       : archetype.bgArts[dir] ?? pick(BG_ARTS, seed)
   ) as (typeof BG_ARTS)[number];
@@ -105,22 +125,35 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
   const ethical = archetype.ethical;
   const cta = goalLabel(briefing.goal, briefing.segment, bank.ctaTitles, seed);
 
-  const headline = fillName(bank.headlines[dir % bank.headlines.length]!, name);
-  const tagline = bank.taglines[dir % bank.taglines.length]!;
+  const headline =
+    (dir === 0 && briefing.headline?.trim()) ||
+    fillName(bank.headlines[dir % bank.headlines.length]!, name);
+  const tagline =
+    (dir === 0 && briefing.tagline?.trim()) || bank.taglines[dir % bank.taglines.length]!;
   const aboutBody = fillName(bank.aboutBodies[dir % bank.aboutBodies.length]!, name);
   const eyebrow = bank.eyebrows[dir % bank.eyebrows.length]!;
   const intro = ethical
     ? aboutBody
-    : briefing.tone.trim()
+    : briefing.tone?.trim()
       ? `${name} — tom ${briefing.tone.trim()}. ${tagline}`
       : aboutBody;
 
-  const recipeBody = archetype.recipes[dir] ?? archetype.recipes[0]!;
-  const withWhatsApp = archetype.blocks.includes("WhatsApp");
+  const recipeBody =
+    template.blocks?.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp") ??
+    archetype.recipes[dir] ??
+    archetype.recipes[0]!;
+  const withWhatsApp =
+    Boolean(briefing.whatsapp?.trim()) ||
+    Boolean(template.blocks?.includes("WhatsApp")) ||
+    archetype.blocks.includes("WhatsApp");
+  const wantsMap = Boolean(briefing.address?.trim()) || recipeBody.includes("Map");
   const sequence: BlockType[] = [
     "Navbar",
     ...recipeBody.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp"),
-    ...(recipeBody.includes("Cta") ? [] : (["Cta"] as const)),
+    ...(wantsMap ? (["Map"] as const) : []),
+    ...(recipeBody.includes("Cta") || recipeBody.includes("Contact") || recipeBody.includes("Booking")
+      ? []
+      : (["Cta"] as const)),
     "Footer",
     ...(withWhatsApp ? (["WhatsApp"] as const) : []),
   ].filter((type, index, arr) => arr.indexOf(type) === index) as BlockType[];
@@ -147,11 +180,18 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     catalogNotes: bank.catalogNotes,
     marqueeExtras: bank.marqueeExtras,
     ctaTitle: pickFrom(bank.ctaTitles, seed + dir + 1),
+    address: briefing.address?.trim() || "",
   };
 
   const content = sequence.map((type, index) => {
     const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
-    const variant = pick(VARIANTS[type], seed + index + dir * 3);
+    let variant = pick(VARIANTS[type], seed + index + dir * 3);
+    if (type === "Hero") {
+      variant =
+        template.heroVariant && (VARIANTS.Hero as readonly string[]).includes(template.heroVariant)
+          ? template.heroVariant
+          : VARIANTS.Hero[dir % VARIANTS.Hero.length]!;
+    }
     return makeBlock(type, { ...base, variant }, copy);
   });
 
@@ -175,7 +215,7 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
         favicon: "",
         locale: "pt-BR",
         whatsapp: {
-          phone: "",
+          phone: briefing.whatsapp?.trim() || "",
           message: `Olá, vim pelo site de ${name}.`,
           floating: withWhatsApp,
         },
@@ -212,6 +252,7 @@ type Copy = {
   catalogNotes: string[];
   marqueeExtras: string[];
   ctaTitle: string;
+  address: string;
 };
 
 function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy): Block {
@@ -405,9 +446,11 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
         props: {
           ...base,
           title: "Onde estamos",
-          address: "Endereço a substituir",
+          address: copy.address || "Endereço a substituir",
           embedUrl: "",
-          note: "Inclua o endereço real antes de publicar.",
+          note: copy.address
+            ? "Venha nos visitar ou fale conosco antes."
+            : "Inclua o endereço real antes de publicar.",
         },
       };
     case "Contact":

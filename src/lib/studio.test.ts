@@ -18,6 +18,12 @@ const briefing = {
   references: "",
   goal: "vender" as const,
   slug: "atelier-luna",
+  address: "",
+  whatsapp: "",
+  templateId: "",
+  headline: "",
+  tagline: "",
+  backgroundColor: "",
 };
 
 describe("slug", () => {
@@ -68,7 +74,16 @@ describe("documento", () => {
 
   it("não publica depoimento inventado nem promessa jurídica", () => {
     const portfolio = generateDeterministic({ ...briefing, clientName: "Helena Vilela", segment: "portfolio" }, 0);
-    expect(JSON.stringify(portfolio)).toContain("Substituir depoimento real");
+    expect(JSON.stringify(portfolio)).toMatch(/substitua por foto real|Substituir depoimento real/i);
+    const withQuotes = generateDeterministic(
+      { ...briefing, clientName: "Helena Vilela", segment: "portfolio", templateId: "editorial" },
+      0,
+    );
+    const quotes = withQuotes.content.find((block) => block.type === "Testimonials");
+    if (quotes?.type === "Testimonials") {
+      expect(quotes.props.items[0]?.placeholder).toBe(true);
+      expect(quotes.props.items[0]?.quote).toMatch(/Substituir depoimento real/i);
+    }
     const law = generateDeterministic({ ...briefing, clientName: "Marina Coelho", segment: "advocacia", services: "Contratos", goal: "captar" }, 1);
     expect(JSON.stringify(law).toLowerCase()).not.toContain("resultado garantido");
     const poisoned = structuredClone(law) as PageDocument;

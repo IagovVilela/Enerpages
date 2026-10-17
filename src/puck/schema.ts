@@ -405,6 +405,14 @@ export const briefingSchema = z.object({
   references: z.string().max(400).default(""),
   goal: z.enum(["vender", "agendar", "captar"]),
   slug: z.string().max(63).default(""),
+  /** Campos extras do intake — diversificam propostas e preenchem Map/WhatsApp. */
+  address: z.string().max(300).default(""),
+  whatsapp: z.string().max(40).default(""),
+  personality: z.enum(PERSONALITIES).optional(),
+  templateId: z.string().max(40).default(""),
+  headline: z.string().max(160).default(""),
+  tagline: z.string().max(240).default(""),
+  backgroundColor: z.string().max(40).default(""),
 });
 
 export type Animation = z.infer<typeof animationSchema>;

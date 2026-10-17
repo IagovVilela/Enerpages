@@ -370,7 +370,8 @@ export function hashString(value: string) {
   return Math.abs(h);
 }
 
-export function directionLabelFor(segment: string, direction: number) {
+export function directionLabelFor(segment: string, direction: number, templateLabel?: string) {
   const archetype = ARCHETYPES[segment] ?? ARCHETYPES.local;
-  return archetype.directions[direction % 3];
+  const base = archetype.directions[direction % 3]!;
+  return templateLabel ? `${templateLabel} · ${base}` : base;
 }

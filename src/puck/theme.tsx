@@ -21,6 +21,7 @@ const spacing = { compact: "3.5rem", comfortable: "5.75rem", airy: "8rem" };
 
 export function themeStyle(theme: Theme): CSSProperties {
   const fonts = fontAssets(theme.fonts.display, theme.fonts.body);
+  const art = bgArtStyle(theme);
   return {
     "--color-background": theme.colors.background,
     "--color-foreground": theme.colors.foreground,
@@ -33,9 +34,10 @@ export function themeStyle(theme: Theme): CSSProperties {
     "--space-section": spacing[theme.spacing],
     "--font-display": `var(${fonts.displayVar})`,
     "--font-body": `var(${fonts.bodyVar})`,
-    backgroundColor: theme.colors.background,
     color: theme.colors.foreground,
-    ...bgArtStyle(theme),
+    ...art,
+    // Depois da arte de fundo — garante cor sólida legível sob o pattern.
+    backgroundColor: theme.colors.background,
   } as CSSProperties;
 }
 

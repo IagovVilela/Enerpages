@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates";
+import { ensureThemeContrast } from "@/lib/theme-contrast";
+import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
 import {
   BG_ARTS,
   BODY_FONTS,
@@ -86,22 +87,34 @@ export function intakeToBriefing(payload: IntakePayload, slug = ""): Briefing {
     differentials: payload.differentials,
     services: payload.services,
     colors: payload.primaryColor,
-    references: [payload.references, payload.headline, payload.tagline].filter(Boolean).join(" · "),
+    references: payload.references,
     goal: payload.goal,
     slug,
+    address: payload.address,
+    whatsapp: payload.whatsapp || payload.phone,
+    personality: payload.personality,
+    templateId: payload.templateId,
+    headline: payload.headline,
+    tagline: payload.tagline,
+    backgroundColor: payload.backgroundColor,
   });
 }
 
 export function applyIntakeToDocument(document: PageDocument, payload: IntakePayload): PageDocument {
+  const baseColors = { ...document.root.props.theme.colors };
+  if (payload.primaryColor?.startsWith("#")) {
+    baseColors.primary = payload.primaryColor;
+    baseColors.accent = payload.primaryColor;
+  }
+  // Só sobrescreve o fundo se o usuário escolheu uma cor; depois harmonia de contraste.
+  if (payload.backgroundColor?.startsWith("#")) {
+    baseColors.background = payload.backgroundColor;
+  }
+
   const theme: Theme = {
     ...document.root.props.theme,
     personality: payload.personality,
-    colors: {
-      ...document.root.props.theme.colors,
-      primary: payload.primaryColor || document.root.props.theme.colors.primary,
-      background: payload.backgroundColor || document.root.props.theme.colors.background,
-      accent: payload.primaryColor || document.root.props.theme.colors.accent,
-    },
+    colors: ensureThemeContrast(baseColors),
     fonts: {
       display: payload.fontDisplay,
       body: payload.fontBody,
@@ -110,11 +123,10 @@ export function applyIntakeToDocument(document: PageDocument, payload: IntakePay
   };
 
   const whatsappPhone = payload.whatsapp || payload.phone || document.root.props.whatsapp.phone;
+  const address = payload.address.trim();
 
-  let content = document.content;
-  if (payload.headline || payload.tagline) {
-    content = content.map((block) => {
-      if (block.type !== "Hero") return block;
+  let content = document.content.map((block) => {
+    if (block.type === "Hero" && (payload.headline || payload.tagline)) {
       return {
         ...block,
         props: {
@@ -123,8 +135,19 @@ export function applyIntakeToDocument(document: PageDocument, payload: IntakePay
           subtitle: payload.tagline || block.props.subtitle,
         },
       };
-    });
-  }
+    }
+    if (block.type === "Map" && address) {
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          address,
+          note: block.props.note?.includes("substituir") ? "Venha nos visitar." : block.props.note,
+        },
+      };
+    }
+    return block;
+  });
 
   return {
     ...document,
