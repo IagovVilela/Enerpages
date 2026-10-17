@@ -11,6 +11,7 @@ const PUBLIC_PREFIXES = [
   "/api/intake",
   "/intake",
   "/preview",
+  "/site",
   "/uploads",
 ];
 

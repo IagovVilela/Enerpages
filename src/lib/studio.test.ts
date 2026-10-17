@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isValidSlug, normalizeSlug, slugError } from "@/lib/slug";
-import { resolveHost } from "@/lib/tenant";
+import { publicOrigin, resolveHost, usesPathTenantUrls } from "@/lib/tenant";
 import { generateDeterministic } from "@/lib/ai/fallback";
 import { buildPageTemplate, PAGE_TEMPLATE_IDS } from "@/puck/page-templates";
 import { enforceCompliance } from "@/lib/ai/compliance";
@@ -34,6 +34,22 @@ describe("tenant", () => {
     expect(resolveHost("atelier-luna.localhost:3000", "localhost")).toEqual({ kind: "tenant", slug: "atelier-luna" });
     expect(resolveHost("www.localhost", "localhost").kind).toBe("studio");
     expect(resolveHost("cliente.com.br", "localhost")).toEqual({ kind: "custom", host: "cliente.com.br" });
+    expect(resolveHost("enerpages-production.up.railway.app", "localhost").kind).toBe("studio");
+  });
+
+  it("usa path público em hosts Railway/Vercel (sem SSL em subdomínio aninhado)", () => {
+    expect(usesPathTenantUrls("enerpages-production.up.railway.app")).toBe(true);
+    expect(usesPathTenantUrls("app.vercel.app")).toBe(true);
+    expect(usesPathTenantUrls("enerpages.com.br")).toBe(false);
+
+    const prev = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "enerpages-production.up.railway.app";
+    expect(publicOrigin("almeida-rocha-advogados")).toBe(
+      "https://enerpages-production.up.railway.app/site/slug/almeida-rocha-advogados",
+    );
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = "localhost:3000";
+    expect(publicOrigin("atelier-luna")).toBe("http://atelier-luna.localhost:3000");
+    process.env.NEXT_PUBLIC_ROOT_DOMAIN = prev;
   });
 });
 
