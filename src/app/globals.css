@@ -138,6 +138,32 @@ body:has(.landing) {
   border-color: var(--studio-line) !important;
 }
 
+/* Seleção / arraste: feedback mais claro ao reordenar blocos */
+.studio-puck [data-puck-component] {
+  transition: outline-color 120ms ease, box-shadow 120ms ease;
+}
+
+.studio-puck [data-puck-overlay][class*="isSelected"],
+.studio-puck [class*="DraggableComponent--isSelected"] {
+  outline: 2px solid color-mix(in oklab, var(--studio-accent) 70%, transparent);
+}
+
+.studio-puck [class*="DraggableComponent--isDragging"],
+.studio-puck [data-puck-dragging] {
+  opacity: 0.88;
+  box-shadow: 0 12px 32px rgba(28, 25, 21, 0.14);
+}
+
+.studio-puck [class*="DropZone"][class*="isAreaSelected"],
+.studio-puck [data-puck-dropzone][class*="hover"] {
+  outline: 1px dashed color-mix(in oklab, var(--studio-accent) 55%, transparent);
+  outline-offset: 4px;
+}
+
+.studio-action-bar button {
+  font-family: inherit;
+}
+
 /* Mobile: canvas livre + dock inferior (sheets), sem forçar 3 colunas */
 @media (max-width: 1023px) {
   .studio-puck [class*="PuckLayout"] [class*="leftSideBar"],

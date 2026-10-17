@@ -27,7 +27,7 @@ import {
 import { Badge, Band, Button, CardGrid, Clip, Divider, Panel, Picture, Spacer, Text } from "@/puck/primitives";
 import { defaultPropsMap } from "@/puck/defaults";
 import { ImageControl } from "@/puck/fields";
-import { animationField, featureArray, linkField, visibilityField } from "@/puck/field-defs";
+import { animationField, featureArray, layoutField, linkField, visibilityField } from "@/puck/field-defs";
 import { VARIANTS, type ImageField, type RootProps } from "@/puck/schema";
 import { ThemeProvider } from "@/puck/theme";
 
@@ -59,6 +59,7 @@ const alignField = {
 };
 const chrome = (type: keyof typeof VARIANTS) => ({
   variant: variantField(type),
+  layout: layoutField,
   anchor: { type: "text" as const, label: "Âncora" },
   visibility: visibilityField,
   animation: animationField,

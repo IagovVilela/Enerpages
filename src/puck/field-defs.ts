@@ -1,4 +1,4 @@
-import { PRESETS } from "@/puck/schema";
+import { LAYOUT_PADDING, LAYOUT_WIDTH, PRESETS } from "@/puck/schema";
 
 const presetLabels: Record<(typeof PRESETS)[number], string> = {
   none: "Nenhuma",
@@ -55,6 +55,38 @@ export const visibilityField = {
     desktop: { type: "radio" as const, label: "Desktop", options: yesNo },
     tablet: { type: "radio" as const, label: "Tablet", options: yesNo },
     mobile: { type: "radio" as const, label: "Celular", options: yesNo },
+  },
+};
+
+const paddingLabels: Record<(typeof LAYOUT_PADDING)[number], string> = {
+  none: "Nenhum",
+  sm: "Compacto",
+  md: "Padrão",
+  lg: "Folgado",
+  xl: "Amplo",
+};
+
+const widthLabels: Record<(typeof LAYOUT_WIDTH)[number], string> = {
+  sm: "Estreito",
+  md: "Médio",
+  lg: "Largo",
+  full: "Tela cheia",
+};
+
+export const layoutField = {
+  type: "object" as const,
+  label: "Tamanho",
+  objectFields: {
+    paddingY: {
+      type: "select" as const,
+      label: "Espaço vertical",
+      options: LAYOUT_PADDING.map((value) => ({ label: paddingLabels[value], value })),
+    },
+    maxWidth: {
+      type: "select" as const,
+      label: "Largura do conteúdo",
+      options: LAYOUT_WIDTH.map((value) => ({ label: widthLabels[value], value })),
+    },
   },
 };
 

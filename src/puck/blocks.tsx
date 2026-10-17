@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { BeforeAfterBoard, ContactForm, FaqList, GalleryBoard, WhatsAppAnchor } from "@/puck/interactive";
 import { Counter, MotionPreset, SplitText } from "@/puck/motion";
-import type { Animation, PropsOf } from "@/puck/schema";
+import { layoutInnerClass, layoutSectionClass, layoutSectionStyle } from "@/puck/layout";
+import type { Animation, Layout, PropsOf } from "@/puck/schema";
 import { Media, ThemeLink } from "@/puck/theme";
 import { visibilityClass } from "@/puck/visibility";
 import { cn } from "@/lib/cn";
@@ -28,17 +29,24 @@ function asText(value: unknown): string {
 function Section({
   anchor,
   visibility,
+  layout,
   className,
   children,
 }: {
   anchor?: string;
   visibility: { desktop: boolean; tablet: boolean; mobile: boolean };
+  layout?: Layout;
   className?: string;
   children: ReactNode;
 }) {
+  const hasExplicitPy = Boolean(className && /\b!?py-/.test(className));
   return (
-    <section id={anchor || undefined} className={cn("px-5 md:px-10", visibilityClass(visibility), className)} style={{ paddingBlock: "var(--space-section)" }}>
-      {children}
+    <section
+      id={anchor || undefined}
+      className={cn("px-5 md:px-10", visibilityClass(visibility), hasExplicitPy ? null : layoutSectionClass(layout), className)}
+      style={hasExplicitPy ? undefined : layoutSectionStyle(layout)}
+    >
+      <div className={layoutInnerClass(layout)}>{children}</div>
     </section>
   );
 }
@@ -72,7 +80,7 @@ export function Navbar(props: PropsOf<"Navbar">) {
     split: <div className="grid items-end gap-6 md:grid-cols-[1fr_auto_1fr]"><strong className="font-display text-3xl">{props.logo}</strong>{links}<div className="md:justify-self-end">{props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}</div></div>,
     minimal: <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-4"><span className="text-xs uppercase tracking-[0.22em]">{props.logo}</span>{props.cta.label ? <a href={props.cta.href}>{props.cta.label}</a> : null}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} className="!py-6">{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout} className="!py-6">{body}</Section></Shell>;
 }
 
 export function Hero(props: PropsOf<"Hero">) {
@@ -99,7 +107,7 @@ export function Hero(props: PropsOf<"Hero">) {
     light: <div className="relative grid min-h-[70svh] items-end bg-[#f5f0e8] text-[#1c1917]"><div className="relative max-w-3xl p-6 md:p-10">{copy}</div><Media image={props.image} blockId={id} path="image" className="min-h-72 md:absolute md:inset-y-10 md:right-10 md:w-[40%]" /></div>,
     brand: <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]"><Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-40" /><div className="relative max-w-3xl p-6 md:p-10">{copy}</div></div>,
   }[props.variant];
-  return <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp><Section anchor={props.anchor || "topo"} visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp><Section anchor={props.anchor || "topo"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function About(props: PropsOf<"About">) {
@@ -116,7 +124,7 @@ export function About(props: PropsOf<"About">) {
     manifesto: <div className="max-w-5xl"><p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p><h2 className="mt-4 font-display text-[clamp(2.8rem,6vw,6rem)] leading-[0.9]">{props.title}</h2><p className="mt-8 max-w-2xl text-xl leading-9">{props.body}</p></div>,
     sidebar: <div className="grid gap-10 border-y border-[var(--color-border)] py-10 md:grid-cols-[12rem_1fr]"><p className="text-xs uppercase tracking-[0.16em]">{props.eyebrow}</p><div><h2 className="font-display text-5xl">{props.title}</h2><p className="mt-4 max-w-prose leading-7">{props.body}</p><div className="mt-8 grid gap-4 md:grid-cols-3">{points}</div></div></div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor || "about"} visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor || "about"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function Services(props: PropsOf<"Services">) {
@@ -160,7 +168,7 @@ export function Services(props: PropsOf<"Services">) {
       </ol>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor || "services"} visibility={props.visibility}><p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mb-8 mt-3 max-w-3xl font-display text-5xl leading-none md:text-7xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor || "services"} visibility={props.visibility} layout={props.layout}><p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mb-8 mt-3 max-w-3xl font-display text-5xl leading-none md:text-7xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Catalog(props: PropsOf<"Catalog">) {
@@ -213,13 +221,13 @@ export function Catalog(props: PropsOf<"Catalog">) {
       </div>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mb-8 mt-3 font-display text-5xl md:text-7xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mb-8 mt-3 font-display text-5xl md:text-7xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Gallery(props: PropsOf<"Gallery">) {
   return (
     <Shell animation={props.animation}>
-      <Section anchor={props.anchor} visibility={props.visibility}>
+      <Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>
         <h2 className="mb-4 font-display text-5xl">{props.title}</h2>
         <GalleryBoard variant={props.variant} images={props.images} blockId={readId(props)} />
       </Section>
@@ -243,7 +251,7 @@ export function Testimonials(props: PropsOf<"Testimonials">) {
     cards: <div className="grid gap-4 md:grid-cols-3">{props.items.map(card)}</div>,
     single: <div className="max-w-2xl">{props.items[0] ? card(props.items[0], 0) : null}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><h2 className="mb-6 font-display text-4xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><h2 className="mb-6 font-display text-4xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Stats(props: PropsOf<"Stats">) {
@@ -259,7 +267,7 @@ export function Stats(props: PropsOf<"Stats">) {
     band: <div className="bg-[var(--color-foreground)] px-6 py-10 text-[var(--color-background)]"><div className="grid gap-6 md:grid-cols-3">{cells}</div></div>,
     stacked: <div className="space-y-6">{cells}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}>{props.variant === "split" ? null : <h2 className="mb-8 font-display text-4xl">{props.title}</h2>}{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{props.variant === "split" ? null : <h2 className="mb-8 font-display text-4xl">{props.title}</h2>}{body}</Section></Shell>;
 }
 
 export function Process(props: PropsOf<"Process">) {
@@ -309,7 +317,7 @@ export function Process(props: PropsOf<"Process">) {
       </div>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Pricing(props: PropsOf<"Pricing">) {
@@ -346,13 +354,13 @@ export function Pricing(props: PropsOf<"Pricing">) {
     ),
     stacked: <div className="mx-auto grid max-w-xl gap-4">{plans}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Faq(props: PropsOf<"Faq">) {
   return (
     <Shell animation={props.animation}>
-      <Section anchor={props.anchor} visibility={props.visibility}>
+      <Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>
         <h2 className="mb-6 font-display text-5xl">{props.title}</h2>
         <FaqList variant={props.variant} items={props.items} />
       </Section>
@@ -405,7 +413,7 @@ export function Team(props: PropsOf<"Team">) {
       </ul>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function Timeline(props: PropsOf<"Timeline">) {
@@ -454,7 +462,7 @@ export function Timeline(props: PropsOf<"Timeline">) {
       </ul>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><h2 className="mb-8 font-display text-5xl">{props.title}</h2>{body}</Section></Shell>;
 }
 
 export function MapBlock(props: PropsOf<"Map">) {
@@ -466,7 +474,7 @@ export function MapBlock(props: PropsOf<"Map">) {
     card: <div className="mx-auto max-w-xl bg-[var(--color-muted)] p-6">{copy}</div>,
     banner: <div className="bg-[var(--color-foreground)] p-8 text-[var(--color-background)]">{copy}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function Contact(props: PropsOf<"Contact">) {
@@ -478,7 +486,7 @@ export function Contact(props: PropsOf<"Contact">) {
     panel: <div className="grid gap-8 bg-[var(--color-muted)] p-6 md:grid-cols-[0.8fr_1.2fr] md:p-10">{copy}{form}</div>,
     minimal: <div className="grid gap-6 border-t border-[var(--color-foreground)] pt-8 md:grid-cols-[1fr_1fr]">{copy}{form}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor="contato" visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor="contato" visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function Cta(props: PropsOf<"Cta">) {
@@ -489,7 +497,7 @@ export function Cta(props: PropsOf<"Cta">) {
     poster: <div className="py-8"><p className="text-xs uppercase tracking-[0.2em]">{props.eyebrow}</p><h2 className="font-display text-[clamp(3rem,8vw,7rem)] leading-[0.85]">{props.title}</h2><div className="mt-6">{action}</div></div>,
     inline: <div className="flex flex-wrap items-center justify-between gap-4 border-y border-[var(--color-border)] py-6"><p className="text-xl">{props.title}</p>{action}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function Footer(props: PropsOf<"Footer">) {
@@ -506,7 +514,7 @@ export function Footer(props: PropsOf<"Footer">) {
     bar: <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6"><span>{props.logo}</span>{links}</div>,
     editorial: <div><p className="font-display text-[clamp(3rem,10vw,8rem)] leading-none">{props.logo}</p><p className="mt-4 max-w-xl">{props.note}</p></div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}><div className="space-y-8">{body}<p className="text-xs uppercase tracking-[0.14em]">{props.legal}</p></div></Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><div className="space-y-8">{body}<p className="text-xs uppercase tracking-[0.14em]">{props.legal}</p></div></Section></Shell>;
 }
 
 export function Marquee(props: PropsOf<"Marquee">) {
@@ -530,7 +538,7 @@ export function Marquee(props: PropsOf<"Marquee">) {
       </ul>
     ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} className="!px-0">{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout} className="!px-0">{body}</Section></Shell>;
 }
 
 export function Video(props: PropsOf<"Video">) {
@@ -554,13 +562,13 @@ export function Video(props: PropsOf<"Video">) {
     cinema: <div className="bg-black p-4 text-white md:p-10">{frame}<p className="mt-3 text-sm">{props.caption}</p></div>,
     text: <div className="grid items-center gap-8 md:grid-cols-[0.7fr_1.3fr]"><h2 className="font-display text-5xl">{props.title}</h2><div>{frame}</div></div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}>{props.variant === "text" ? null : <h2 className="mb-6 font-display text-5xl">{props.title}</h2>}{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{props.variant === "text" ? null : <h2 className="mb-6 font-display text-5xl">{props.title}</h2>}{body}</Section></Shell>;
 }
 
 export function BeforeAfter(props: PropsOf<"BeforeAfter">) {
   return (
     <Shell animation={props.animation}>
-      <Section anchor={props.anchor} visibility={props.visibility}>
+      <Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>
         <h2 className="mb-6 font-display text-5xl">{props.title}</h2>
         <BeforeAfterBoard variant={props.variant} before={props.before} after={props.after} beforeLabel={props.beforeLabel} afterLabel={props.afterLabel} blockId={readId(props)} />
       </Section>
@@ -576,7 +584,7 @@ export function Booking(props: PropsOf<"Booking">) {
     split: <div className="grid items-center gap-6 md:grid-cols-2"><div><h2 className="font-display text-6xl leading-none">{props.title}</h2><p className="mt-4">{props.subtitle}</p></div>{action}</div>,
     minimal: <div className="flex items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6"><span>{props.title}</span>{action}</div>,
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function WhatsApp(props: PropsOf<"WhatsApp">) {

@@ -5,6 +5,7 @@ import "@puckeditor/core/puck.css";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { applyPageTemplate, publishPage, restoreVersion, saveDraft, unpublishPage } from "@/actions/studio";
+import { StudioActionBar } from "@/components/studio-action-bar";
 import { PageTemplatePicker } from "@/components/page-template-picker";
 import { libraryPlugin } from "@/components/studio-library";
 import { layersPlugin } from "@/components/studio-layers";
@@ -223,9 +224,9 @@ function StudioEditorInner({
             />
           ),
           actionBar: ({ children, parentAction, label }) => (
-            <ActionBarWithDeleteConfirm parentAction={parentAction} label={label}>
+            <StudioActionBar parentAction={parentAction} label={label}>
               {children}
-            </ActionBarWithDeleteConfirm>
+            </StudioActionBar>
           ),
           preview: ({ children }) => (
             <>
@@ -469,58 +470,6 @@ function HeaderChrome({
         Despublicar
       </button>
       {publishSlot}
-    </div>
-  );
-}
-
-function ActionBarWithDeleteConfirm({
-  children,
-  parentAction,
-  label,
-}: {
-  children: ReactNode;
-  parentAction: ReactNode;
-  label?: string;
-}) {
-  const dispatch = useStudioPuck((state) => state.dispatch);
-  const selectedItem = useStudioPuck((state) => state.selectedItem);
-  const { confirm } = useStudioUi();
-
-  function requestDelete(event: { target: EventTarget | null; preventDefault: () => void; stopPropagation: () => void }) {
-    const target = event.target as HTMLElement | null;
-    const button = target?.closest("button, [role='button']") as HTMLElement | null;
-    if (!button) return;
-    const text = `${button.getAttribute("title") || ""} ${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`;
-    if (!/remover|delete/i.test(text)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if ((selectedItem?.props as { locked?: boolean } | undefined)?.locked) return;
-    void (async () => {
-      const ok = await confirm({
-        title: "Remover este bloco?",
-        description: selectedItem
-          ? `O bloco ${selectedItem.type} será removido do rascunho. Você pode desfazer em seguida se precisar.`
-          : "O bloco selecionado será removido do rascunho.",
-        confirmLabel: "Remover",
-        danger: true,
-      });
-      if (!ok || !selectedItem) return;
-      const selectedId = (selectedItem.props as { id?: string }).id;
-      dispatch({
-        type: "setData",
-        data: (previous) => ({
-          ...previous,
-          content: previous.content.filter((block) => (block.props as { id?: string }).id !== selectedId),
-        }),
-      });
-    })();
-  }
-
-  return (
-    <div className="flex items-center gap-1" onClickCapture={requestDelete}>
-      {parentAction}
-      {label ? <span className="px-1 text-[10px] text-neutral-500">{label}</span> : null}
-      {children}
     </div>
   );
 }

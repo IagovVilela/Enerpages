@@ -3,6 +3,7 @@ import { enforceCompliance } from "@/lib/ai/compliance";
 import {
   VARIANTS,
   defaultAnimation,
+  defaultLayout,
   defaultVisibility,
   emptyImage,
   pageDataSchema,
@@ -45,6 +46,7 @@ function chrome(type: BlockType, seed: number, preset: PropsOf<"Hero">["animatio
       delay: (seed % 4) * 0.05,
     },
     locked: false,
+    layout: defaultLayout(),
     variant: pick(VARIANTS[type], seed),
   };
 }

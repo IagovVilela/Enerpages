@@ -155,12 +155,21 @@ export const themeSchema = z.object({
   bgArtStrength: z.coerce.number().min(5).max(100).default(45),
 });
 
+export const LAYOUT_PADDING = ["none", "sm", "md", "lg", "xl"] as const;
+export const LAYOUT_WIDTH = ["sm", "md", "lg", "full"] as const;
+
+export const layoutSchema = z.object({
+  paddingY: z.enum(LAYOUT_PADDING).default("md"),
+  maxWidth: z.enum(LAYOUT_WIDTH).default("lg"),
+});
+
 const chrome = {
   id: z.string().optional(),
   anchor: z.string().optional(),
   visibility: visibilitySchema,
   animation: animationSchema,
   locked: z.boolean().optional().default(false),
+  layout: layoutSchema.optional().default({ paddingY: "md", maxWidth: "lg" }),
 };
 
 const feature = z.object({
@@ -400,6 +409,7 @@ export const briefingSchema = z.object({
 
 export type Animation = z.infer<typeof animationSchema>;
 export type Visibility = z.infer<typeof visibilitySchema>;
+export type Layout = z.infer<typeof layoutSchema>;
 export type ImageField = z.infer<typeof imageSchema>;
 export type Theme = z.infer<typeof themeSchema>;
 export type PageDocument = z.infer<typeof pageDataSchema>;
@@ -420,4 +430,8 @@ export function defaultAnimation(preset: Animation["preset"] = "fade"): Animatio
 
 export function defaultVisibility(): Visibility {
   return { desktop: true, tablet: true, mobile: true };
+}
+
+export function defaultLayout(): Layout {
+  return { paddingY: "md", maxWidth: "lg" };
 }
