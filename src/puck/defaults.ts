@@ -12,6 +12,12 @@ const blank = {
   references: "",
   goal: "captar" as const,
   slug: "",
+  address: "",
+  whatsapp: "",
+  templateId: "",
+  headline: "",
+  tagline: "",
+  backgroundColor: "",
 };
 
 export function defaultPropsMap() {

@@ -185,13 +185,12 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
 
   const content = sequence.map((type, index) => {
     const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
-    let variant = pick(VARIANTS[type], seed + index + dir * 3);
-    if (type === "Hero") {
-      variant =
-        template.heroVariant && (VARIANTS.Hero as readonly string[]).includes(template.heroVariant)
-          ? template.heroVariant
-          : VARIANTS.Hero[dir % VARIANTS.Hero.length]!;
-    }
+    const heroVariants = VARIANTS.Hero;
+    const heroVariant =
+      template.heroVariant && (heroVariants as readonly string[]).includes(template.heroVariant)
+        ? (template.heroVariant as (typeof heroVariants)[number])
+        : heroVariants[dir % heroVariants.length]!;
+    const variant = type === "Hero" ? heroVariant : pick(VARIANTS[type], seed + index + dir * 3);
     return makeBlock(type, { ...base, variant }, copy);
   });
 
@@ -621,5 +620,6 @@ export function sampleBlock(type: BlockType): Block {
     catalogNotes: ["Sob consulta"],
     marqueeExtras: ["marca"],
     ctaTitle: "Saiba mais",
+    address: "",
   });
 }

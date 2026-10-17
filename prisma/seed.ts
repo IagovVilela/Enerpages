@@ -15,6 +15,12 @@ const samples: Briefing[] = [
     references: "",
     goal: "vender",
     slug: "atelier-luna",
+    address: "",
+    whatsapp: "",
+    templateId: "vitrine",
+    headline: "",
+    tagline: "",
+    backgroundColor: "",
   },
   {
     clientName: "Marina Coelho",
@@ -27,6 +33,12 @@ const samples: Briefing[] = [
     references: "",
     goal: "captar",
     slug: "marina-coelho",
+    address: "",
+    whatsapp: "",
+    templateId: "classic",
+    headline: "",
+    tagline: "",
+    backgroundColor: "",
   },
 ];
 
