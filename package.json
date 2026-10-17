@@ -13,6 +13,7 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:migrate:deploy": "prisma db push && tsx prisma/seed.ts",
+    "db:reset-admin": "node scripts/reset-admin-password.mjs",
     "db:setup": "prisma db push && prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma && tsx prisma/seed.ts"
   },
   "prisma": {
@@ -32,6 +33,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1",
+    "tsx": "^4.23.15",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -44,7 +46,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.1",
     "tailwindcss": "^4",
-    "tsx": "^4.23.15",
     "typescript": "^5",
     "vitest": "^3.2.7"
   }

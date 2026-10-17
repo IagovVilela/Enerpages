@@ -37,11 +37,13 @@ async function main() {
     throw new Error("Defina ADMIN_EMAIL e ADMIN_PASSWORD com pelo menos 10 caracteres.");
   }
 
+  const passwordHash = await hashPassword(password);
   await prisma.adminUser.upsert({
     where: { email },
-    update: { passwordHash: await hashPassword(password) },
-    create: { email, name: "Admin", passwordHash: await hashPassword(password) },
+    update: { passwordHash, totpEnabled: false, totpSecretEncrypted: null },
+    create: { email, name: "Admin", passwordHash },
   });
+  console.log(`Admin sincronizado: ${email}`);
 
   for (const briefing of samples) {
     const data = pageDataSchema.parse(generateDeterministic(briefing, 0));

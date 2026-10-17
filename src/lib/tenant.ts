@@ -17,7 +17,8 @@ export function resolveHost(hostHeader: string, rootDomain: string): HostResolut
     host === "localhost" ||
     host === "127.0.0.1" ||
     host === root ||
-    host.endsWith(".vercel.app")
+    host.endsWith(".vercel.app") ||
+    host.endsWith(".up.railway.app")
   ) {
     return { kind: "studio" };
   }
