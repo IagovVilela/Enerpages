@@ -93,7 +93,9 @@ export function metadataFor(page: PublicPage): Metadata {
   const url = page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug);
   const title = seo?.title || page.seoTitle || page.clientName;
   const description = seo?.description || page.seoDescription || "";
-  const favicon = (page.data?.root.props.favicon || page.logoUrl || "").trim() || undefined;
+  const uploaded = (page.data?.root.props.favicon || page.logoUrl || "").trim();
+  /** Preferir rota tipada da página — evita /favicon.ico global da Enerpages no host studio. */
+  const favicon = uploaded || (page.slug ? `/api/site-icon/${page.slug}` : undefined);
   return {
     /** absolute evita o template "%s · Enerpages" do layout raiz. */
     title: { absolute: title },
@@ -105,7 +107,6 @@ export function metadataFor(page: PublicPage): Metadata {
       url,
       images: seo?.ogImage ? [seo.ogImage] : undefined,
     },
-    /** Substitui os ícones do layout raiz (favicon da marca do cliente). */
     icons: favicon
       ? {
           icon: [{ url: favicon }],

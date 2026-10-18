@@ -53,6 +53,28 @@ export async function proxy(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
+  /** Em /site/slug/... no host do studio, /favicon.ico ainda pedia a marca Enerpages. */
+  if (
+    pathname === "/favicon.ico" ||
+    pathname === "/icon" ||
+    pathname.startsWith("/icon.") ||
+    pathname.startsWith("/apple-icon")
+  ) {
+    const referer = request.headers.get("referer") || "";
+    const slugMatch = referer.match(/\/site\/slug\/([^/?#]+)/i);
+    if (slugMatch?.[1]) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/api/site-icon/${decodeURIComponent(slugMatch[1])}`;
+      return NextResponse.rewrite(url);
+    }
+    const domainMatch = referer.match(/\/site\/domain\/([^/?#]+)/i);
+    if (domainMatch?.[1]) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/api/site-icon/domain/${domainMatch[1]}`;
+      return NextResponse.rewrite(url);
+    }
+  }
+
   if (PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
