@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isLikelyPageUrl, mapsEmbedFromAddress, toMapEmbedSrc } from "@/lib/map-embed";
+import { isLikelyPageUrl, isUsableMapAddress, mapsEmbedFromAddress, toMapEmbedSrc } from "@/lib/map-embed";
 
 describe("toMapEmbedSrc", () => {
   it("monta embed a partir do endereço", () => {
@@ -7,6 +7,11 @@ describe("toMapEmbedSrc", () => {
     expect(src).toContain("maps.google.com/maps");
     expect(src).toContain("output=embed");
     expect(src).toContain(encodeURIComponent("Rua das Flores, 100"));
+  });
+
+  it("ignora placeholder de endereço", () => {
+    expect(toMapEmbedSrc("", "Endereço a substituir")).toBe("");
+    expect(isUsableMapAddress("Endereço a substituir")).toBe(false);
   });
 
   it("rejeita www.google.com nu", () => {
@@ -19,6 +24,12 @@ describe("toMapEmbedSrc", () => {
     const src = toMapEmbedSrc("https://www.google.com/maps/place/Atelier+Vento/@-23.5,-46.6,17z", "");
     expect(src).toContain("output=embed");
     expect(src).toMatch(/Atelier|23\.5/);
+  });
+
+  it("converte /maps/search/ em embed", () => {
+    const src = toMapEmbedSrc("https://www.google.com/maps/search/Rua+das+Flores+100", "");
+    expect(src).toContain("output=embed");
+    expect(src).toContain("Flores");
   });
 
   it("mantém embed oficial", () => {

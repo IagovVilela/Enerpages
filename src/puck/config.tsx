@@ -134,8 +134,15 @@ const components = withLockPermissions({
     fields: {
       ...chrome("Map"),
       title: { type: "text", label: "Título" },
-      address: { type: "textarea", label: "Endereço" },
-      embedUrl: { type: "text", label: "URL do mapa (opcional — link Incorporar do Google Maps)" },
+      address: {
+        type: "textarea",
+        label: "Endereço (aparece no texto e gera o mapa)",
+        contentEditable: true,
+      },
+      embedUrl: {
+        type: "text",
+        label: "URL do mapa (opcional — só se tiver o link Incorporar)",
+      },
       note: { type: "textarea", label: "Nota" },
     },
     defaultProps: props.get("Map"),

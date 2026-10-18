@@ -1,9 +1,17 @@
 /** Converte endereço ou URL do Google Maps em src seguro para iframe (output=embed). */
 
-export function mapsEmbedFromAddress(address: string) {
+const PLACEHOLDER_ADDRESS = /endereço a substituir|endereco a substituir|seu endereço|informe o endereço/i;
+
+export function isUsableMapAddress(address: string) {
   const q = address.trim();
-  if (!q) return "";
-  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&hl=pt-BR&z=15&output=embed`;
+  if (!q) return false;
+  if (PLACEHOLDER_ADDRESS.test(q)) return false;
+  return true;
+}
+
+export function mapsEmbedFromAddress(address: string) {
+  if (!isUsableMapAddress(address)) return "";
+  return `https://maps.google.com/maps?q=${encodeURIComponent(address.trim())}&hl=pt-BR&z=15&output=embed`;
 }
 
 /**
@@ -48,8 +56,16 @@ function convertMapsUrl(raw: string): string {
       return mapsEmbedFromAddress(decodeURIComponent(place[1].replace(/\+/g, " ")));
     }
 
+    const searchPath = parsed.pathname.match(/\/maps\/search\/([^/]+)/);
+    if (searchPath?.[1]) {
+      return mapsEmbedFromAddress(decodeURIComponent(searchPath[1].replace(/\+/g, " ")));
+    }
+
     const at = raw.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
     if (at) return mapsEmbedFromAddress(`${at[1]},${at[2]}`);
+
+    // URL incompleta (ex.: /maps/sear…) — deixa o endereço do bloco resolver
+    if (/\/maps\/sear/i.test(parsed.pathname) && parsed.pathname.length < 20) return "";
 
     parsed.searchParams.set("output", "embed");
     if (!parsed.searchParams.has("hl")) parsed.searchParams.set("hl", "pt-BR");

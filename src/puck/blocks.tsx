@@ -634,18 +634,35 @@ export function MapBlock(props: PropsOf<"Map">) {
     <iframe title={props.title} src={embed} className="min-h-72 w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
   ) : (
     <div className="media-placeholder grid min-h-72 place-items-center gap-2 p-6 text-center text-sm">
-      <p>Informe o endereço da loja para exibir o mapa.</p>
-      <p className="text-xs text-[var(--color-foreground)]/55">Não use o site do Google — use o endereço ou o link “Incorporar mapa”.</p>
+      <p>Digite o endereço real no campo “Endereço” (à direita) para o mapa aparecer aqui.</p>
+      <p className="text-xs text-[var(--color-foreground)]/55">Opcional: cole o link “Incorporar mapa” do Google Maps.</p>
     </div>
   );
-  const copy = <div><h2 className="font-display text-5xl">{props.title}</h2><p className="mt-4 text-lg">{props.address}</p><p className="mt-2 text-sm">{props.note}</p></div>;
+  const copy = (
+    <div>
+      <h2 className="font-display text-5xl">{props.title}</h2>
+      <p className="mt-4 text-lg">{props.address}</p>
+      <p className="mt-2 text-sm">{props.note}</p>
+    </div>
+  );
+  /** Todas as variantes mostram o mapa: o endereço (texto) fica no copy; o iframe abaixo/ao lado. */
   const body = {
     split: <div className="grid gap-8 md:grid-cols-2">{copy}{map}</div>,
     stacked: <div className="space-y-6">{copy}{map}</div>,
-    card: <div className="mx-auto max-w-xl bg-[var(--color-muted)] p-6">{copy}</div>,
-    banner: <div className="bg-[var(--color-foreground)] p-8 text-[var(--color-background)]">{copy}</div>,
+    card: (
+      <div className="mx-auto grid max-w-3xl gap-6">
+        <div className="bg-[var(--color-muted)] p-6">{copy}</div>
+        {map}
+      </div>
+    ),
+    banner: (
+      <div className="grid gap-0 overflow-hidden">
+        <div className="bg-[var(--color-foreground)] p-8 text-[var(--color-background)]">{copy}</div>
+        {map}
+      </div>
+    ),
   }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
+  return <Shell animation={props.animation}><Section anchor={props.anchor || "mapa"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 
 export function Contact(props: PropsOf<"Contact">) {
