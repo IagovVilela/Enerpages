@@ -24,6 +24,7 @@ async function Dashboard() {
     return {
       id: page.id,
       clientName: page.clientName,
+      logoUrl: page.logoUrl,
       slug: page.slug,
       segment: page.segment,
       tags: page.tags ?? [],

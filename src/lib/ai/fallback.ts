@@ -278,6 +278,7 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
         props: {
           ...base,
           logo: copy.name,
+          logoImage: "",
           links: [
             { label: "Sobre", href: "#about" },
             { label: "Serviços", href: "#services" },
@@ -496,6 +497,7 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
         props: {
           ...base,
           logo: copy.name,
+          logoImage: "",
           note: copy.refs[0] ? `Clima visual: ${copy.refs[0]}` : copy.tagline,
           links: [
             { label: "Topo", href: "#topo" },

@@ -33,6 +33,8 @@ model Page {
   slug            String         @unique
   customDomain    String?        @unique
   clientName      String
+  /** URL da logo da marca (upload na lista Clientes). */
+  logoUrl         String?
   segment         String
   /** Identificadores livres (ex.: VIP, prioridade, código do cliente). */
   tags            String[]       @default([])

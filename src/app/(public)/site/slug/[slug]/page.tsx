@@ -88,11 +88,12 @@ function withRuntime(data: PageDocument, slug: string, pageId: string): PageDocu
   return { ...data, root: { props: { ...data.root.props, slug, pageId } } };
 }
 
-function metadataFor(page: PublicPage): Metadata {
+export function metadataFor(page: PublicPage): Metadata {
   const seo = page.data?.root.props.seo;
   const url = page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug);
   const title = seo?.title || page.seoTitle || page.clientName;
   const description = seo?.description || page.seoDescription || "";
+  const favicon = page.data?.root.props.favicon || page.logoUrl || undefined;
   return {
     title,
     description,
@@ -103,7 +104,7 @@ function metadataFor(page: PublicPage): Metadata {
       url,
       images: seo?.ogImage ? [seo.ogImage] : undefined,
     },
-    icons: page.data?.root.props.favicon ? { icon: page.data.root.props.favicon } : undefined,
+    icons: favicon ? { icon: favicon } : undefined,
   };
 }
 

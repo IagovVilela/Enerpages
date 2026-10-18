@@ -6,6 +6,7 @@ export type PublicPage = {
   id: string;
   slug: string;
   clientName: string;
+  logoUrl: string | null;
   segment: string;
   archetype: string | null;
   seoTitle: string;
@@ -22,6 +23,7 @@ type StateRow = {
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   customDomain: string | null;
   clientName: string;
+  logoUrl: string | null;
 };
 
 type PublishedRow = {
@@ -29,6 +31,7 @@ type PublishedRow = {
   slug: string;
   customDomain: string | null;
   clientName: string;
+  logoUrl: string | null;
   segment: string;
   publishedData: unknown;
   canvasPublished: unknown | null;
@@ -54,7 +57,13 @@ async function readStateFromAdmin(where: { slug?: string; host?: string }): Prom
     ? await prisma.page.findUnique({ where: { slug: where.slug } })
     : await prisma.page.findUnique({ where: { customDomain: where.host } });
   if (!page) return null;
-  return { slug: page.slug, status: page.status, customDomain: page.customDomain, clientName: page.clientName };
+  return {
+    slug: page.slug,
+    status: page.status,
+    customDomain: page.customDomain,
+    clientName: page.clientName,
+    logoUrl: page.logoUrl,
+  };
 }
 
 async function readPublishedFromAdmin(slug: string): Promise<PublishedRow | null> {
@@ -65,6 +74,7 @@ async function readPublishedFromAdmin(slug: string): Promise<PublishedRow | null
     slug: page.slug,
     customDomain: page.customDomain,
     clientName: page.clientName,
+    logoUrl: page.logoUrl,
     segment: page.segment,
     publishedData: page.publishedData,
     canvasPublished: page.canvasPublished,
@@ -81,8 +91,8 @@ async function readState(where: { slug?: string; host?: string }): Promise<State
   }
   try {
     const rows = where.slug
-      ? await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE slug = ${where.slug} LIMIT 1`
-      : await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName" FROM "PageState" WHERE "customDomain" = ${where.host} LIMIT 1`;
+      ? await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName", "logoUrl" FROM "PageState" WHERE slug = ${where.slug} LIMIT 1`
+      : await prismaPublic.$queryRaw<StateRow[]>`SELECT slug, status::text as status, "customDomain", "clientName", "logoUrl" FROM "PageState" WHERE "customDomain" = ${where.host} LIMIT 1`;
     return rows[0] ?? null;
   } catch (error) {
     if (!isMissingRelation(error)) throw error;
@@ -96,7 +106,7 @@ async function readPublished(slug: string): Promise<PublishedRow | null> {
   }
   try {
     const rows = await prismaPublic.$queryRaw<PublishedRow[]>`
-      SELECT id, slug, "customDomain", "clientName", segment, "publishedData", "canvasPublished",
+      SELECT id, slug, "customDomain", "clientName", "logoUrl", segment, "publishedData", "canvasPublished",
              "publishEngine"::text as "publishEngine", "seoTitle", "seoDescription", archetype
       FROM "PublishedPage" WHERE slug = ${slug} LIMIT 1
     `;
@@ -107,6 +117,18 @@ async function readPublished(slug: string): Promise<PublishedRow | null> {
   }
 }
 
+/** Injeta logoUrl da página nos blocos Navbar/Footer sem gravar no JSON. */
+export function withClientLogo(data: PageDocument, logoUrl: string | null): PageDocument {
+  if (!logoUrl) return data;
+  return {
+    ...data,
+    content: data.content.map((block) => {
+      if (block.type !== "Navbar" && block.type !== "Footer") return block;
+      return { ...block, props: { ...block.props, logoImage: logoUrl } } as typeof block;
+    }),
+  };
+}
+
 export async function loadPublicPage(where: { slug?: string; host?: string }): Promise<PublicPage | null> {
   const state = await readState(where);
   if (!state) return null;
@@ -115,6 +137,7 @@ export async function loadPublicPage(where: { slug?: string; host?: string }): P
       id: "",
       slug: state.slug,
       clientName: state.clientName,
+      logoUrl: state.logoUrl,
       segment: "",
       archetype: null,
       seoTitle: state.clientName,
@@ -133,11 +156,13 @@ export async function loadPublicPage(where: { slug?: string; host?: string }): P
     engine === "CANVAS" && row?.canvasPublished
       ? parseSiteCanvasConfig(row.canvasPublished, row.clientName || state.clientName)
       : null;
+  const logoUrl = row?.logoUrl ?? state.logoUrl;
 
   return {
     id: row?.id || "",
     slug: state.slug,
     clientName: row?.clientName || state.clientName,
+    logoUrl,
     segment: row?.segment || "",
     archetype: row?.archetype ?? null,
     seoTitle: row?.seoTitle || state.clientName,
@@ -145,7 +170,7 @@ export async function loadPublicPage(where: { slug?: string; host?: string }): P
     customDomain: row?.customDomain ?? state.customDomain,
     status: "PUBLISHED",
     publishEngine: engine,
-    data: parsed.success ? parsed.data : null,
+    data: parsed.success ? withClientLogo(parsed.data, logoUrl) : null,
     canvas,
   };
 }

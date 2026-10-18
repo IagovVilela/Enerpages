@@ -2,14 +2,19 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { cacheLife, cacheTag } from "next/cache";
-import { SiteView } from "@/app/(public)/site/slug/[slug]/page";
+import { metadataFor, SiteView } from "@/app/(public)/site/slug/[slug]/page";
 import { loadPublicPage } from "@/lib/published";
 
 export async function generateMetadata({ params }: { params: Promise<{ domain: string }> }): Promise<Metadata> {
   const { domain } = await params;
   const page = await cachedDomain(domain);
-  if (!page?.data) return { title: "Página não encontrada", robots: { index: false } };
-  return { title: page.seoTitle, description: page.seoDescription };
+  const ready =
+    page?.status === "PUBLISHED" &&
+    ((page.publishEngine === "CANVAS" && page.canvas) || (page.publishEngine !== "CANVAS" && page.data));
+  if (!page || !ready) {
+    return { title: page ? `${page.clientName} · em construção` : "Página não encontrada", robots: { index: false } };
+  }
+  return metadataFor(page);
 }
 
 export default function DomainPage({ params }: { params: Promise<{ domain: string }> }) {

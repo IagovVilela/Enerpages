@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { SiteView } from "@/app/(public)/site/slug/[slug]/page";
 import { prisma } from "@/lib/db";
+import { withClientLogo } from "@/lib/published";
 import { readPreview } from "@/lib/preview";
 import { pageDataSchema } from "@/puck/schema";
 
@@ -32,6 +33,7 @@ async function PreviewBody({ params }: { params: Promise<{ token: string }> }) {
         id: page.id,
         slug: page.slug,
         clientName: page.clientName,
+        logoUrl: page.logoUrl,
         segment: page.segment,
         archetype: page.archetype,
         seoTitle: page.seoTitle,
@@ -39,7 +41,7 @@ async function PreviewBody({ params }: { params: Promise<{ token: string }> }) {
         customDomain: page.customDomain,
         status: "PUBLISHED",
         publishEngine: page.publishEngine === "CANVAS" ? "CANVAS" : "PUCK",
-        data: parsed.data,
+        data: withClientLogo(parsed.data, page.logoUrl),
         canvas: null,
       }}
     />

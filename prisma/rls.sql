@@ -32,6 +32,7 @@ SELECT
   slug,
   "customDomain",
   "clientName",
+  "logoUrl",
   segment,
   "publishedData",
   "canvasPublished",
@@ -46,7 +47,7 @@ WHERE status = 'PUBLISHED';
 
 DROP VIEW IF EXISTS "PageState";
 CREATE VIEW "PageState" AS
-SELECT slug, status, "customDomain", "clientName"
+SELECT slug, status, "customDomain", "clientName", "logoUrl"
 FROM "Page";
 
 GRANT SELECT ON "PublishedPage" TO enerpages_public;

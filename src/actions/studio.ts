@@ -297,6 +297,23 @@ export async function updatePageTags(pageId: string, tags: string[]) {
   return { ok: true as const, tags: next };
 }
 
+export async function updatePageLogo(pageId: string, logoUrl: string | null) {
+  await requireAdmin();
+  const next = logoUrl?.trim() || null;
+  if (next && !/^(\/uploads\/|https?:\/\/)/i.test(next)) {
+    return { ok: false as const, error: "URL de logo inválida." };
+  }
+  const page = await prisma.page.update({
+    where: { id: pageId },
+    data: { logoUrl: next },
+    select: { slug: true },
+  });
+  revalidatePath("/");
+  updateTag(`page:${page.slug}`);
+  updateTag("pages:index");
+  return { ok: true as const, logoUrl: next };
+}
+
 export async function duplicatePage(pageId: string) {
   await requireAdmin();
   const page = await prisma.page.findUniqueOrThrow({ where: { id: pageId } });
@@ -309,6 +326,7 @@ export async function duplicatePage(pageId: string) {
     data: {
       slug,
       clientName: `${page.clientName} cópia`,
+      logoUrl: page.logoUrl,
       segment: page.segment,
       tags: page.tags ?? [],
       draftData: page.draftData ?? {},

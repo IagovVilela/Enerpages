@@ -191,6 +191,8 @@ function block<T extends string, P extends z.ZodRawShape>(type: T, variant: read
 export const blockSchema = z.discriminatedUnion("type", [
   block("Navbar", VARIANTS.Navbar, {
     logo: z.string(),
+    /** URL da logo da marca; quando presente, substitui o texto. */
+    logoImage: z.string().optional().default(""),
     links: z.array(linkSchema),
     cta: linkSchema,
   }),
@@ -289,6 +291,8 @@ export const blockSchema = z.discriminatedUnion("type", [
   }),
   block("Footer", VARIANTS.Footer, {
     logo: z.string(),
+    /** URL da logo da marca; quando presente, substitui o texto. */
+    logoImage: z.string().optional().default(""),
     note: z.string(),
     links: z.array(linkSchema),
     legal: z.string(),

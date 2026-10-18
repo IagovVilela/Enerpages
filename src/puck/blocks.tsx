@@ -67,6 +67,26 @@ function Shell({ animation, preserveLcp, className, children }: { animation: Ani
   );
 }
 
+function BrandLogo({
+  logo,
+  logoImage,
+  className,
+  imgClassName,
+}: {
+  logo: string;
+  logoImage?: string;
+  className?: string;
+  imgClassName?: string;
+}) {
+  if (logoImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- URLs dinâmicas de upload do cliente
+      <img src={logoImage} alt={asText(logo) || "Logo"} className={cn("object-contain object-left", imgClassName)} />
+    );
+  }
+  return <strong className={className}>{asText(logo)}</strong>;
+}
+
 export function Navbar(props: PropsOf<"Navbar">) {
   const links = (
     <nav className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm uppercase tracking-[0.14em]">
@@ -75,11 +95,42 @@ export function Navbar(props: PropsOf<"Navbar">) {
       ))}
     </nav>
   );
+  const mark = (textClass: string, imgClass: string) => (
+    <BrandLogo logo={props.logo} logoImage={props.logoImage} className={textClass} imgClassName={imgClass} />
+  );
   const body = {
-    bar: <div className="flex items-center justify-between gap-6"><strong className="font-display text-2xl">{props.logo}</strong>{links}{props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}</div>,
-    centered: <div className="grid justify-items-center gap-4 text-center"><strong className="font-display text-4xl">{props.logo}</strong>{links}</div>,
-    split: <div className="grid items-end gap-6 md:grid-cols-[1fr_auto_1fr]"><strong className="font-display text-3xl">{props.logo}</strong>{links}<div className="md:justify-self-end">{props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}</div></div>,
-    minimal: <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-4"><span className="text-xs uppercase tracking-[0.22em]">{props.logo}</span>{props.cta.label ? <a href={props.cta.href}>{props.cta.label}</a> : null}</div>,
+    bar: (
+      <div className="flex items-center justify-between gap-6">
+        {mark("font-display text-2xl", "h-9 max-w-[12rem]")}
+        {links}
+        {props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}
+      </div>
+    ),
+    centered: (
+      <div className="grid justify-items-center gap-4 text-center">
+        {mark("font-display text-4xl", "h-12 max-w-[16rem]")}
+        {links}
+      </div>
+    ),
+    split: (
+      <div className="grid items-end gap-6 md:grid-cols-[1fr_auto_1fr]">
+        {mark("font-display text-3xl", "h-10 max-w-[14rem]")}
+        {links}
+        <div className="md:justify-self-end">
+          {props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}
+        </div>
+      </div>
+    ),
+    minimal: (
+      <div className="flex items-baseline justify-between border-b border-[var(--color-border)] pb-4">
+        {props.logoImage ? (
+          mark("", "h-7 max-w-[10rem]")
+        ) : (
+          <span className="text-xs uppercase tracking-[0.22em]">{asText(props.logo)}</span>
+        )}
+        {props.cta.label ? <a href={props.cta.href}>{props.cta.label}</a> : null}
+      </div>
+    ),
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout} className="!py-6">{body}</Section></Shell>;
 }
@@ -696,11 +747,40 @@ export function Footer(props: PropsOf<"Footer">) {
       ))}
     </nav>
   );
+  const mark = (textClass: string, imgClass: string) => (
+    <BrandLogo logo={props.logo} logoImage={props.logoImage} className={textClass} imgClassName={imgClass} />
+  );
   const body = {
-    columns: <div className="grid gap-8 md:grid-cols-3"><strong className="font-display text-3xl">{props.logo}</strong><p className="max-w-sm text-sm leading-6">{props.note}</p>{links}</div>,
-    centered: <div className="grid justify-items-center gap-4 text-center"><strong className="font-display text-4xl">{props.logo}</strong><p className="max-w-md text-sm">{props.note}</p>{links}</div>,
-    bar: <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6"><span>{props.logo}</span>{links}</div>,
-    editorial: <div><p className="font-display text-[clamp(2.5rem,8cqw,5.5rem)] leading-none text-balance">{props.logo}</p><p className="mt-4 max-w-xl">{props.note}</p></div>,
+    columns: (
+      <div className="grid gap-8 md:grid-cols-3">
+        {mark("font-display text-3xl", "h-10 max-w-[14rem]")}
+        <p className="max-w-sm text-sm leading-6">{props.note}</p>
+        {links}
+      </div>
+    ),
+    centered: (
+      <div className="grid justify-items-center gap-4 text-center">
+        {mark("font-display text-4xl", "h-12 max-w-[16rem]")}
+        <p className="max-w-md text-sm">{props.note}</p>
+        {links}
+      </div>
+    ),
+    bar: (
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--color-border)] pt-6">
+        {props.logoImage ? mark("", "h-8 max-w-[12rem]") : <span>{asText(props.logo)}</span>}
+        {links}
+      </div>
+    ),
+    editorial: (
+      <div>
+        {props.logoImage ? (
+          mark("", "h-16 max-w-[20rem]")
+        ) : (
+          <p className="font-display text-[clamp(2.5rem,8cqw,5.5rem)] leading-none text-balance">{asText(props.logo)}</p>
+        )}
+        <p className="mt-4 max-w-xl">{props.note}</p>
+      </div>
+    ),
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><div className="space-y-8">{body}<p className="text-xs uppercase tracking-[0.14em]">{props.legal}</p></div></Section></Shell>;
 }

@@ -95,7 +95,23 @@ function withLockPermissions<T extends Record<string, object>>(components: T): T
 }
 
 const components = withLockPermissions({
-  Navbar: { label: "Navegação", fields: { ...chrome("Navbar"), logo: { type: "text", label: "Logo", contentEditable: true }, links: { type: "array", label: "Links", arrayFields: { label: { type: "text" }, href: { type: "text" } }, getItemSummary: (item: { label?: string }) => item.label || "Link" }, cta: linkField("Botão") }, defaultProps: props.get("Navbar"), render: Navbar },
+  Navbar: {
+    label: "Navegação",
+    fields: {
+      ...chrome("Navbar"),
+      logo: { type: "text", label: "Logo (texto)", contentEditable: true },
+      logoImage: { type: "text", label: "Logo (URL — preenchida pela lista Clientes)" },
+      links: {
+        type: "array",
+        label: "Links",
+        arrayFields: { label: { type: "text" }, href: { type: "text" } },
+        getItemSummary: (item: { label?: string }) => item.label || "Link",
+      },
+      cta: linkField("Botão"),
+    },
+    defaultProps: props.get("Navbar"),
+    render: Navbar,
+  },
   Hero: {
     label: "Hero",
     fields: {
@@ -150,7 +166,24 @@ const components = withLockPermissions({
   },
   Contact: { label: "Contato", fields: { ...chrome("Contact"), title: { type: "text", label: "Título", contentEditable: true }, subtitle: { type: "textarea", label: "Texto", contentEditable: true }, submitLabel: { type: "text", label: "Botão" } }, defaultProps: props.get("Contact"), render: Contact },
   Cta: { label: "Chamada final", fields: { ...chrome("Cta"), eyebrow: { type: "text", contentEditable: true, label: "Linha" }, title: { type: "textarea", contentEditable: true, label: "Título" }, subtitle: { type: "textarea", label: "Texto" }, cta: linkField("Botão") }, defaultProps: props.get("Cta"), render: Cta },
-  Footer: { label: "Rodapé", fields: { ...chrome("Footer"), logo: { type: "text", contentEditable: true, label: "Logo" }, note: { type: "textarea", label: "Nota" }, links: { type: "array", label: "Links", arrayFields: { label: { type: "text" }, href: { type: "text" } }, getItemSummary: (item: { label?: string }) => item.label || "Link" }, legal: { type: "text", label: "Legal" } }, defaultProps: props.get("Footer"), render: Footer },
+  Footer: {
+    label: "Rodapé",
+    fields: {
+      ...chrome("Footer"),
+      logo: { type: "text", contentEditable: true, label: "Logo (texto)" },
+      logoImage: { type: "text", label: "Logo (URL — preenchida pela lista Clientes)" },
+      note: { type: "textarea", label: "Nota" },
+      links: {
+        type: "array",
+        label: "Links",
+        arrayFields: { label: { type: "text" }, href: { type: "text" } },
+        getItemSummary: (item: { label?: string }) => item.label || "Link",
+      },
+      legal: { type: "text", label: "Legal" },
+    },
+    defaultProps: props.get("Footer"),
+    render: Footer,
+  },
   Marquee: { label: "Letreiro", fields: { ...chrome("Marquee"), items: { type: "array", label: "Itens", arrayFields: { label: { type: "text", contentEditable: true } }, getItemSummary: (item: { label?: string }) => item.label || "Item" } }, defaultProps: props.get("Marquee"), render: Marquee },
   Video: { label: "Vídeo", fields: { file: imageField("Arquivo de vídeo"), ...chrome("Video"), title: { type: "text", label: "Título" }, url: { type: "text", label: "Ou cole um link do YouTube ou Vimeo" }, caption: { type: "textarea", label: "Legenda" } }, defaultProps: props.get("Video"), render: Video },
   BeforeAfter: { label: "Antes e depois", fields: { ...chrome("BeforeAfter"), title: { type: "text", label: "Título" }, before: imageField("Antes"), after: imageField("Depois"), beforeLabel: { type: "text", label: "Rótulo antes" }, afterLabel: { type: "text", label: "Rótulo depois" } }, defaultProps: props.get("BeforeAfter"), render: BeforeAfter },

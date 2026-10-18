@@ -1,15 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { archivePage, deletePage, duplicatePage, updatePageSegment, updatePageTags } from "@/actions/studio";
+import {
+  archivePage,
+  deletePage,
+  duplicatePage,
+  updatePageLogo,
+  updatePageSegment,
+  updatePageTags,
+} from "@/actions/studio";
 import { normalizePageTag, segmentLabel } from "@/lib/segment-labels";
+import { uploadFile } from "@/puck/media-upload";
 import { SEGMENTS } from "@/puck/schema";
 
 export type DashboardPageItem = {
   id: string;
   clientName: string;
+  logoUrl: string | null;
   slug: string;
   segment: string;
   tags: string[];
@@ -29,6 +38,9 @@ export function ClientsDashboard({ pages }: { pages: DashboardPageItem[] }) {
   const [status, setStatus] = useState("all");
   const [tag, setTag] = useState("all");
   const [draftTags, setDraftTags] = useState<Record<string, string>>({});
+  const [logoBusy, setLogoBusy] = useState<string | null>(null);
+  const [logoError, setLogoError] = useState<Record<string, string>>({});
+  const logoInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const segmentsInUse = useMemo(() => {
     const set = new Set(pages.map((page) => page.segment));
@@ -79,6 +91,29 @@ export function ClientsDashboard({ pages }: { pages: DashboardPageItem[] }) {
       page.id,
       page.tags.filter((item) => item.toLowerCase() !== remove.toLowerCase()),
     );
+    refresh();
+  }
+
+  async function onLogoFile(page: DashboardPageItem, file: File | undefined) {
+    if (!file) return;
+    setLogoBusy(page.id);
+    setLogoError((prev) => ({ ...prev, [page.id]: "" }));
+    const result = await uploadFile(file);
+    if (!result.url) {
+      setLogoBusy(null);
+      setLogoError((prev) => ({ ...prev, [page.id]: result.error || "Falha no envio" }));
+      return;
+    }
+    await updatePageLogo(page.id, result.url);
+    setLogoBusy(null);
+    refresh();
+  }
+
+  async function clearLogo(page: DashboardPageItem) {
+    setLogoBusy(page.id);
+    setLogoError((prev) => ({ ...prev, [page.id]: "" }));
+    await updatePageLogo(page.id, null);
+    setLogoBusy(null);
     refresh();
   }
 
@@ -154,16 +189,62 @@ export function ClientsDashboard({ pages }: { pages: DashboardPageItem[] }) {
             className="grid gap-4 border border-[var(--studio-line)] bg-white p-4 md:grid-cols-[7rem_1fr]"
           >
             <div
-              className="grid min-h-28 content-end p-3"
+              className="relative grid min-h-28 place-items-center p-3"
               style={{ background: page.theme.background, color: page.theme.foreground }}
             >
-              <span className="h-2 w-8" style={{ background: page.theme.primary }} />
-              <strong className="mt-3 text-sm leading-tight">{page.clientName}</strong>
+              {page.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- URL de upload do cliente
+                <img src={page.logoUrl} alt="" className="max-h-20 max-w-full object-contain" />
+              ) : (
+                <span
+                  className="grid size-12 place-items-center text-lg font-semibold"
+                  style={{ background: page.theme.primary, color: page.theme.background }}
+                  aria-hidden
+                >
+                  {(page.clientName.trim()[0] || "?").toUpperCase()}
+                </span>
+              )}
             </div>
             <div className="grid gap-2">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl">{page.clientName}</h2>
                 <span className="text-xs uppercase tracking-[0.14em]">{statusLabel(page.status)}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <input
+                  ref={(el) => {
+                    logoInputs.current[page.id] = el;
+                  }}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  tabIndex={-1}
+                  disabled={logoBusy === page.id}
+                  onChange={(event) => {
+                    void onLogoFile(page, event.target.files?.[0]);
+                    event.target.value = "";
+                  }}
+                />
+                <button
+                  type="button"
+                  className="border border-[var(--studio-ink)] px-2.5 py-1 text-xs"
+                  disabled={logoBusy === page.id}
+                  onClick={() => logoInputs.current[page.id]?.click()}
+                >
+                  {logoBusy === page.id ? "Enviando…" : page.logoUrl ? "Trocar logo" : "Anexar logo"}
+                </button>
+                {page.logoUrl ? (
+                  <button
+                    type="button"
+                    className="border border-[var(--studio-line)] px-2.5 py-1 text-xs"
+                    disabled={logoBusy === page.id}
+                    onClick={() => void clearLogo(page)}
+                  >
+                    Remover
+                  </button>
+                ) : null}
+                {logoError[page.id] ? <span className="text-xs text-red-700">{logoError[page.id]}</span> : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
