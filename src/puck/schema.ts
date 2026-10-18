@@ -48,7 +48,7 @@ export const PRESETS = [
 
 export const VARIANTS = {
   Navbar: ["bar", "centered", "split", "minimal"],
-  Hero: ["split", "editorial", "immersive", "asymmetric", "cinematic", "light", "brand"],
+  Hero: ["banner", "split", "editorial", "immersive", "asymmetric", "cinematic", "light", "brand"],
   About: ["columns", "overlap", "manifesto", "sidebar"],
   Services: ["grid", "list", "bento", "index"],
   Catalog: ["shelf", "lookbook", "rows", "mosaic"],
@@ -199,6 +199,8 @@ export const blockSchema = z.discriminatedUnion("type", [
     title: z.string(),
     subtitle: z.string(),
     image: imageSchema,
+    /** logo = marca/banner com contain; photo = foto de fundo com cover. */
+    imageMode: z.enum(["logo", "photo"]).default("logo"),
     primaryCta: linkSchema,
     secondaryCta: linkSchema,
   }),

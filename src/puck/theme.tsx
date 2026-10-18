@@ -134,6 +134,8 @@ export function Media({
   zoom = 1,
   posX = 50,
   posY = 50,
+  fit = "cover",
+  emptyLabel = "Foto",
 }: {
   image: ImageField;
   className?: string;
@@ -142,28 +144,31 @@ export function Media({
   zoom?: number;
   posX?: number;
   posY?: number;
+  fit?: "cover" | "contain";
+  emptyLabel?: string;
 }) {
   const page = usePage();
+  const objectFit = fit === "contain" ? "object-contain" : "object-cover";
   const crop = {
     objectPosition: `${posX}% ${posY}%`,
-    transform: zoom > 1 ? `scale(${zoom})` : undefined,
+    transform: zoom > 1 && fit === "cover" ? `scale(${zoom})` : undefined,
     transformOrigin: `${posX}% ${posY}%`,
   } as CSSProperties;
   const empty = !image?.src || image.placeholder;
   const frame = empty ? (
     <div className="media-frame media-placeholder grid h-full min-h-48 place-items-end p-4 md:p-5">
       <span className="pointer-events-none text-[0.65rem] uppercase tracking-[0.18em] text-[var(--color-foreground)]/45">
-        Foto
+        {emptyLabel}
       </span>
     </div>
   ) : isVideoSrc(image.src) ? (
-    <div className="media-frame h-full overflow-hidden">
-      <video src={image.src} className="h-full w-full object-cover" style={crop} controls playsInline />
+    <div className={cn("media-frame h-full overflow-hidden", fit === "contain" && "bg-[var(--color-muted)]/35")}>
+      <video src={image.src} className={cn("h-full w-full", objectFit)} style={crop} controls playsInline />
     </div>
   ) : (
-    <div className="media-frame h-full overflow-hidden">
+    <div className={cn("media-frame h-full overflow-hidden", fit === "contain" && "bg-[var(--color-muted)]/35")}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={image.src} alt={image.alt} className="h-full w-full object-cover" style={crop} />
+      <img src={image.src} alt={image.alt} className={cn("h-full w-full", objectFit)} style={crop} />
     </div>
   );
   return (

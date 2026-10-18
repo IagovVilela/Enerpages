@@ -151,6 +151,7 @@ export const READY_PRESETS: { title: string; items: LibraryItem[] }[] = [
   {
     title: "Hero prontos",
     items: [
+      { id: "hero-banner", label: "Banner", hint: "Logo da marca + texto", type: "Hero", variant: "banner" },
       { id: "hero-cinematic", label: "Cinema", hint: "Escuro + overlay forte", type: "Hero", variant: "cinematic" },
       { id: "hero-light", label: "Claro", hint: "Fundo suave", type: "Hero", variant: "light" },
       { id: "hero-brand", label: "Marca", hint: "Tom de marca", type: "Hero", variant: "brand" },

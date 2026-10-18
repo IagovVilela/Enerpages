@@ -86,6 +86,7 @@ export function Navbar(props: PropsOf<"Navbar">) {
 export function Hero(props: PropsOf<"Hero">) {
   const id = readId(props);
   const hasImage = Boolean(props.image?.src) && !props.image?.placeholder;
+  const logoMode = (props.imageMode ?? "logo") === "logo";
   /** cqw (não vw): mesma escala no canvas do Puck e no site publicado. */
   const title = (
     <h1 className="font-display text-[clamp(2.5rem,7.2cqw,5.75rem)] leading-[0.92] tracking-[-0.03em] text-balance">
@@ -112,23 +113,59 @@ export function Hero(props: PropsOf<"Hero">) {
       {copy}
     </div>
   );
-  const immersive = hasImage ? (
-    <div className="relative grid min-h-[88svh] items-end">
-      <Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full" />
-      <div className="relative max-w-3xl bg-[var(--color-background)]/88 p-6 md:p-10">{copy}</div>
+  const logoPanel = (className?: string) => (
+    <div
+      className={cn(
+        "grid min-h-[14rem] place-items-center rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)]/55 p-6 md:min-h-[16rem] md:p-8",
+        className,
+      )}
+    >
+      <Media
+        image={props.image}
+        blockId={id}
+        path="image"
+        fit="contain"
+        emptyLabel="Logo da marca"
+        className="max-h-52 w-full md:max-h-64"
+      />
     </div>
-  ) : (
-    textFirst
   );
+  /** Banner de marca: logo com contain, sem overlay escuro, uma composição só. */
+  const brandBanner = (
+    <div className="grid items-center gap-8 py-8 md:grid-cols-12 md:gap-12 md:py-14">
+      <div className="md:col-span-5">{logoPanel()}</div>
+      <div className="md:col-span-7">{copy}</div>
+    </div>
+  );
+  const sideMedia = (photoClass: string, spacerClass: string, logoClass?: string) => {
+    if (logoMode) return logoPanel(logoClass);
+    if (hasImage) {
+      return <Media image={props.image} blockId={id} path="image" fit="cover" className={photoClass} />;
+    }
+    return <div className={spacerClass} aria-hidden />;
+  };
+  const immersive =
+    hasImage && !logoMode ? (
+      <div className="relative grid min-h-[88svh] items-end">
+        <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full" />
+        <div className="relative max-w-3xl bg-[var(--color-background)]/88 p-6 md:p-10">{copy}</div>
+      </div>
+    ) : hasImage || logoMode ? (
+      brandBanner
+    ) : (
+      textFirst
+    );
+  const requested = props.variant;
+  const variant =
+    logoMode && (requested === "cinematic" || requested === "immersive" || requested === "brand")
+      ? "banner"
+      : requested;
   const body = {
+    banner: brandBanner,
     split: (
-      <div className="grid items-end gap-10 lg:grid-cols-12">
+      <div className="grid items-center gap-10 lg:grid-cols-12">
         <div className="lg:col-span-7">{copy}</div>
-        {hasImage ? (
-          <Media image={props.image} blockId={id} path="image" className="min-h-[28rem] lg:col-span-5" />
-        ) : (
-          <div className="hidden lg:col-span-5 lg:block" aria-hidden />
-        )}
+        {sideMedia("min-h-[28rem] lg:col-span-5", "hidden lg:col-span-5 lg:block", "lg:col-span-5")}
       </div>
     ),
     editorial: (
@@ -139,11 +176,7 @@ export function Hero(props: PropsOf<"Hero">) {
           <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
           {ctas}
         </div>
-        {hasImage ? (
-          <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[26rem]" />
-        ) : (
-          <div className="hidden md:col-span-5 md:block" aria-hidden />
-        )}
+        {sideMedia("min-h-72 md:col-span-5 md:min-h-[26rem]", "hidden md:col-span-5 md:block", "md:col-span-5")}
       </div>
     ),
     immersive,
@@ -152,41 +185,41 @@ export function Hero(props: PropsOf<"Hero">) {
         <p className="text-xs uppercase tracking-[0.28em] md:[writing-mode:vertical-rl]">{props.eyebrow}</p>
         <div className="md:ml-[min(8cqw,4rem)]">
           {copy}
-          {hasImage ? (
-            <div className="mt-8 md:w-2/3 md:justify-self-end">
-              <Media image={props.image} blockId={id} path="image" className="min-h-72" />
+          {hasImage || logoMode ? (
+            <div className={cn("mt-8", logoMode ? "md:max-w-md" : "md:w-2/3 md:justify-self-end")}>
+              {sideMedia("min-h-72", "hidden")}
             </div>
           ) : null}
         </div>
       </div>
     ),
-    cinematic: hasImage ? (
-      <div className="relative grid min-h-[88svh] items-end bg-[#0f1419] text-[#fafafa]">
-        <Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-70" />
-        <div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div>
-      </div>
-    ) : (
-      textFirst
-    ),
+    cinematic:
+      hasImage && !logoMode ? (
+        <div className="relative grid min-h-[88svh] items-end bg-[#0f1419] text-[#fafafa]">
+          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full opacity-70" />
+          <div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div>
+        </div>
+      ) : (
+        brandBanner
+      ),
     light: (
       <div className="relative grid items-center gap-8 bg-[#f5f0e8] px-0 py-6 text-[#1c1917] md:grid-cols-12 md:gap-10 md:py-10">
         <div className="relative max-w-3xl md:col-span-7">{copy}</div>
-        {hasImage ? (
-          <Media image={props.image} blockId={id} path="image" className="min-h-72 md:col-span-5 md:min-h-[26rem]" />
-        ) : (
-          <div className="hidden md:col-span-5 md:block" aria-hidden />
-        )}
+        {sideMedia("min-h-72 md:col-span-5 md:min-h-[26rem]", "hidden md:col-span-5 md:block", "md:col-span-5")}
       </div>
     ),
-    brand: hasImage ? (
-      <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]">
-        <Media image={props.image} blockId={id} path="image" className="absolute inset-0 min-h-full opacity-40" />
-        <div className="relative max-w-3xl p-6 md:p-10">{copy}</div>
-      </div>
-    ) : (
-      <div className="bg-[var(--color-primary)] px-6 py-16 text-[var(--color-background)] md:px-10">{copy}</div>
-    ),
-  }[props.variant];
+    brand:
+      hasImage && !logoMode ? (
+        <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]">
+          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full opacity-40" />
+          <div className="relative max-w-3xl p-6 md:p-10">{copy}</div>
+        </div>
+      ) : logoMode ? (
+        brandBanner
+      ) : (
+        <div className="bg-[var(--color-primary)] px-6 py-16 text-[var(--color-background)] md:px-10">{copy}</div>
+      ),
+  }[variant];
   return <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp><Section anchor={props.anchor || "topo"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
 

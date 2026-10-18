@@ -96,7 +96,28 @@ function withLockPermissions<T extends Record<string, object>>(components: T): T
 
 const components = withLockPermissions({
   Navbar: { label: "Navegação", fields: { ...chrome("Navbar"), logo: { type: "text", label: "Logo", contentEditable: true }, links: { type: "array", label: "Links", arrayFields: { label: { type: "text" }, href: { type: "text" } }, getItemSummary: (item: { label?: string }) => item.label || "Link" }, cta: linkField("Botão") }, defaultProps: props.get("Navbar"), render: Navbar },
-  Hero: { label: "Hero", fields: { image: imageField(), ...chrome("Hero"), eyebrow: { type: "text", label: "Linha", contentEditable: true }, title: { type: "textarea", label: "Título", contentEditable: true }, subtitle: { type: "textarea", label: "Subtítulo", contentEditable: true }, primaryCta: linkField("CTA principal"), secondaryCta: linkField("CTA secundário") }, defaultProps: props.get("Hero"), render: Hero },
+  Hero: {
+    label: "Hero",
+    fields: {
+      image: imageField("Banner / logo da marca"),
+      imageMode: {
+        type: "radio" as const,
+        label: "Uso da imagem",
+        options: [
+          { label: "Logo / banner", value: "logo" },
+          { label: "Foto de fundo", value: "photo" },
+        ],
+      },
+      ...chrome("Hero"),
+      eyebrow: { type: "text", label: "Linha", contentEditable: true },
+      title: { type: "textarea", label: "Título", contentEditable: true },
+      subtitle: { type: "textarea", label: "Subtítulo", contentEditable: true },
+      primaryCta: linkField("CTA principal"),
+      secondaryCta: linkField("CTA secundário"),
+    },
+    defaultProps: props.get("Hero"),
+    render: Hero,
+  },
   About: { label: "Sobre", fields: { image: imageField(), ...chrome("About"), eyebrow: { type: "text", contentEditable: true, label: "Linha" }, title: { type: "textarea", contentEditable: true, label: "Título" }, body: { type: "textarea", contentEditable: true, label: "Texto" }, points: featureArray }, defaultProps: props.get("About"), render: About },
   Services: { label: "Serviços", fields: { ...chrome("Services"), eyebrow: { type: "text", contentEditable: true, label: "Linha" }, title: { type: "textarea", contentEditable: true, label: "Título" }, items: featureArray }, defaultProps: props.get("Services"), render: Services },
   Catalog: { label: "Catálogo", fields: { ...chrome("Catalog"), eyebrow: { type: "text", label: "Linha" }, title: { type: "text", label: "Título", contentEditable: true }, items: { type: "array", label: "Produtos", arrayFields: { title: { type: "text" }, description: { type: "textarea" }, price: { type: "text" }, image: imageField("Foto") }, getItemSummary: (item: { title?: string }) => item.title || "Produto" } }, defaultProps: props.get("Catalog"), render: Catalog },

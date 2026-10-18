@@ -190,8 +190,8 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     address: briefing.address?.trim() || "",
   };
 
-  /** Sem fotos reais: prioriza heróis tipográficos (nada de immersive/cinematic vazios). */
-  const safeHeroVariants = ["split", "editorial", "light", "asymmetric", "brand"] as const;
+  /** Sem fotos reais: prioriza heróis tipográficos / banner de logo (nada de immersive/cinematic vazios). */
+  const safeHeroVariants = ["banner", "split", "editorial", "light", "asymmetric"] as const;
   const content = sequence.map((type, index) => {
     const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
     let variant = pick(VARIANTS[type], seed + index + dir * 3);
@@ -294,6 +294,7 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
           title: copy.headline,
           subtitle: copy.tagline || copy.intro,
           image: img,
+          imageMode: "logo" as const,
           primaryCta: link,
           secondaryCta: { label: copy.ethical ? "Conhecer o trabalho" : "Ver mais", href: "#about" },
         },

@@ -28,7 +28,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     colors: paper("#f7f7f5", "#171717", "#171717", "#e5e5e5", "#f0f0ee", "#d4d4d4"),
     motion: "fade",
     blocks: ["Navbar", "Hero", "Footer"],
-    heroVariant: "split",
+    heroVariant: "banner",
   },
   classic: {
     personality: "warm",
@@ -87,7 +87,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     colors: paper("#09090b", "#ecfccb", "#a3e635", "#14532d", "#0c0c0e", "#27272a"),
     motion: "slide-left",
     blocks: ["Navbar", "Hero", "Services", "Faq", "Cta", "Footer", "WhatsApp"],
-    heroVariant: "brand",
+    heroVariant: "banner",
   },
   brutalista: {
     personality: "brutalist",
@@ -109,7 +109,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     motion: "fade",
     preferredSegment: "moda",
     blocks: ["Navbar", "Hero", "Catalog", "About", "Process", "Cta", "Footer"],
-    heroVariant: "editorial",
+    heroVariant: "banner",
   },
   bauhaus: {
     personality: "bold",
@@ -131,7 +131,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     motion: "fade",
     preferredSegment: "moda",
     blocks: ["Navbar", "Hero", "Marquee", "Catalog", "About", "Cta", "Footer", "WhatsApp"],
-    heroVariant: "split",
+    heroVariant: "banner",
   },
 };
 
