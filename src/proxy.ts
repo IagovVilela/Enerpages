@@ -24,10 +24,26 @@ export async function proxy(request: NextRequest) {
     if (
       pathname.startsWith("/api/leads") ||
       pathname.startsWith("/api/analytics") ||
+      pathname.startsWith("/api/site-icon") ||
       pathname.startsWith("/_next") ||
       pathname.startsWith("/uploads")
     ) {
       return NextResponse.next();
+    }
+    /** Favicon do tenant: logo do cliente, sem usar o ícone global da Enerpages. */
+    if (
+      pathname === "/favicon.ico" ||
+      pathname === "/icon" ||
+      pathname.startsWith("/icon.") ||
+      pathname.startsWith("/apple-icon")
+    ) {
+      const url = request.nextUrl.clone();
+      if (resolved.kind === "tenant") {
+        url.pathname = `/api/site-icon/${resolved.slug}`;
+      } else {
+        url.pathname = `/api/site-icon/domain/${encodeURIComponent(resolved.host)}`;
+      }
+      return NextResponse.rewrite(url);
     }
     const url = request.nextUrl.clone();
     url.pathname =
@@ -66,5 +82,12 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)"],
+  matcher: [
+    "/favicon.ico",
+    "/icon",
+    "/icon/:path*",
+    "/apple-icon",
+    "/apple-icon/:path*",
+    "/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)",
+  ],
 };
