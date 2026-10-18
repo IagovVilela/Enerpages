@@ -43,7 +43,8 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     motion: "mask-reveal",
     preferredSegment: "portfolio",
     direction: 1,
-    blocks: ["Navbar", "Hero", "About", "Gallery", "Video", "Process", "Contact", "Footer"],
+    blocks: ["Navbar", "Hero", "About", "Services", "Process", "Contact", "Footer"],
+    heroVariant: "split",
   },
   minimal: {
     personality: "minimal",
@@ -72,7 +73,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     colors: paper("#111111", "#f5f5f2", "#fb923c", "#1c1c1c", "#161616", "#2a2a2a"),
     motion: "scale",
     blocks: ["Navbar", "Hero", "Marquee", "Process", "Stats", "Cta", "Footer"],
-    heroVariant: "immersive",
+    heroVariant: "asymmetric",
   },
   noir: {
     personality: "luxury",
@@ -86,7 +87,7 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     colors: paper("#09090b", "#ecfccb", "#a3e635", "#14532d", "#0c0c0e", "#27272a"),
     motion: "slide-left",
     blocks: ["Navbar", "Hero", "Services", "Faq", "Cta", "Footer", "WhatsApp"],
-    heroVariant: "immersive",
+    heroVariant: "brand",
   },
   brutalista: {
     personality: "brutalist",
@@ -107,7 +108,8 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
     colors: paper("#fbf7f2", "#2a2118", "#6b2d3c", "#d7c4a3", "#f3ece3", "#e6d9c8"),
     motion: "fade",
     preferredSegment: "moda",
-    blocks: ["Navbar", "Hero", "Catalog", "Gallery", "About", "Cta", "Footer"],
+    blocks: ["Navbar", "Hero", "Catalog", "About", "Process", "Cta", "Footer"],
+    heroVariant: "editorial",
   },
   bauhaus: {
     personality: "bold",
@@ -125,24 +127,27 @@ export const TEMPLATE_STYLES: Record<PageTemplateId, TemplateStyle> = {
   },
   vitrine: {
     personality: "editorial",
-    colors: paper("#111111", "#f5f5f2", "#e7ff3d", "#f5f5f2", "#1c1c1c", "#2a2a2a"),
-    motion: "mask-reveal",
+    colors: paper("#f6f1ea", "#1c1410", "#8f3d2b", "#c6a15b", "#efe6da", "#e4d8c8"),
+    motion: "fade",
     preferredSegment: "moda",
-    blocks: ["Navbar", "Hero", "Marquee", "Catalog", "Gallery", "Cta", "Footer", "WhatsApp"],
-    heroVariant: "immersive",
+    blocks: ["Navbar", "Hero", "Marquee", "Catalog", "About", "Cta", "Footer", "WhatsApp"],
+    heroVariant: "split",
   },
 };
 
-/** Três modelos bem diferentes por segmento — as propostas deixam de sair iguais. */
+/**
+ * Modelos tipográficos / estáveis (sem depender de galeria vazia).
+ * Neon/impacto dark só entram como contraste controlado.
+ */
 export const SEGMENT_PROPOSAL_TEMPLATES: Record<string, [PageTemplateId, PageTemplateId, PageTemplateId]> = {
-  moda: ["vitrine", "boutique", "neon"],
-  portfolio: ["studio", "editorial", "impacto"],
+  moda: ["vitrine", "boutique", "editorial"],
+  portfolio: ["studio", "editorial", "minimal"],
   advocacia: ["classic", "noir", "minimal"],
   psicologia: ["ocean", "minimal", "editorial"],
   clinica: ["ocean", "classic", "rua"],
-  restaurante: ["boutique", "impacto", "rua"],
-  barbearia: ["rua", "brutalista", "neon"],
-  infoproduto: ["moderno", "neon", "impacto"],
+  restaurante: ["boutique", "rua", "classic"],
+  barbearia: ["rua", "brutalista", "moderno"],
+  infoproduto: ["moderno", "impacto", "minimal"],
   local: ["rua", "classic", "ocean"],
 };
 

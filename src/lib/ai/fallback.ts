@@ -138,10 +138,17 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
       ? `${name} — tom ${briefing.tone.trim()}. ${tagline}`
       : aboutBody;
 
-  const recipeBody =
+  /** Blocos que ficam feios sem foto — substituímos por conteúdo tipográfico. */
+  const mediaHeavy = new Set<BlockType>(["Gallery", "Video", "BeforeAfter"]);
+  const textFillers: BlockType[] = ["About", "Process", "Faq", "Services"];
+  const rawRecipe =
     template.blocks?.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp") ??
     archetype.recipes[dir] ??
     archetype.recipes[0]!;
+  const recipeBody = rawRecipe.map((type, index) => {
+    if (!mediaHeavy.has(type)) return type;
+    return textFillers[(seed + index + dir) % textFillers.length]!;
+  });
   const withWhatsApp =
     Boolean(briefing.whatsapp?.trim()) ||
     Boolean(template.blocks?.includes("WhatsApp")) ||
@@ -183,14 +190,20 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     address: briefing.address?.trim() || "",
   };
 
+  /** Sem fotos reais: prioriza heróis tipográficos (nada de immersive/cinematic vazios). */
+  const safeHeroVariants = ["split", "editorial", "light", "asymmetric", "brand"] as const;
   const content = sequence.map((type, index) => {
     const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
-    const heroVariants = VARIANTS.Hero;
-    const heroVariant =
-      template.heroVariant && (heroVariants as readonly string[]).includes(template.heroVariant)
-        ? (template.heroVariant as (typeof heroVariants)[number])
-        : heroVariants[dir % heroVariants.length]!;
-    const variant = type === "Hero" ? heroVariant : pick(VARIANTS[type], seed + index + dir * 3);
+    let variant = pick(VARIANTS[type], seed + index + dir * 3);
+    if (type === "Hero") {
+      const preferred = template.heroVariant;
+      variant =
+        preferred && (safeHeroVariants as readonly string[]).includes(preferred)
+          ? (preferred as (typeof safeHeroVariants)[number])
+          : safeHeroVariants[dir % safeHeroVariants.length]!;
+    }
+    if (type === "Catalog") variant = pick(["rows", "shelf", "lookbook"] as const, seed + dir);
+    if (type === "Services") variant = pick(["list", "grid", "index"] as const, seed + dir + 1);
     return makeBlock(type, { ...base, variant }, copy);
   });
 
@@ -202,9 +215,9 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
           colors,
           fonts: FONT_BY_PERSONALITY[personality],
           ...STYLE_BY_PERSONALITY[personality],
-          bgArt,
+          bgArt: bgArt === "noise" || bgArt === "checker" ? (dir === 0 ? "none" : "horizon") : bgArt,
           bgArtColor: colors.foreground,
-          bgArtStrength: 40 + (dir % 3) * 12,
+          bgArtStrength: 18 + (dir % 3) * 8,
         },
         seo: {
           title: `${name} · ${archetype.label}`,
@@ -335,10 +348,11 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
         type,
         props: {
           ...base,
-          title: "Imagens para substituir",
-          images: [0, 1, 2, 3, 4, 5].map((n) => ({
+          variant: "grid",
+          title: "Referências",
+          images: [0, 1, 2].map((n) => ({
             image: img,
-            caption: `Imagem ${n + 1} — substitua por foto real autorizada`,
+            caption: copy.galleryTags[n % copy.galleryTags.length] || "Detalhe",
             tag: copy.galleryTags[n % copy.galleryTags.length] || "Detalhe",
           })),
         },

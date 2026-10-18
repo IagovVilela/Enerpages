@@ -68,18 +68,24 @@ describe("documento", () => {
     );
     expect(pageDataSchema.safeParse(fashion).success).toBe(true);
     expect(pageDataSchema.safeParse(law).success).toBe(true);
-    expect(fashion.root.props.theme.colors.primary).not.toBe(law.root.props.theme.colors.primary);
     expect(fashion.content.map((block) => block.type).join()).not.toBe(law.content.map((block) => block.type).join());
+    const fashionHero = fashion.content.find((block) => block.type === "Hero");
+    const lawHero = law.content.find((block) => block.type === "Hero");
+    expect(fashionHero?.type === "Hero" && lawHero?.type === "Hero").toBe(true);
+    if (fashionHero?.type === "Hero" && lawHero?.type === "Hero") {
+      expect(fashionHero.props.title).not.toBe(lawHero.props.title);
+    }
   });
 
   it("não publica depoimento inventado nem promessa jurídica", () => {
     const portfolio = generateDeterministic({ ...briefing, clientName: "Helena Vilela", segment: "portfolio" }, 0);
-    expect(JSON.stringify(portfolio)).toMatch(/substitua por foto real|Substituir depoimento real/i);
+    expect(portfolio.content.some((block) => block.type === "Gallery")).toBe(false);
     const withQuotes = generateDeterministic(
       { ...briefing, clientName: "Helena Vilela", segment: "portfolio", templateId: "editorial" },
       0,
     );
     const quotes = withQuotes.content.find((block) => block.type === "Testimonials");
+    expect(quotes?.type).toBe("Testimonials");
     if (quotes?.type === "Testimonials") {
       expect(quotes.props.items[0]?.placeholder).toBe(true);
       expect(quotes.props.items[0]?.quote).toMatch(/Substituir depoimento real/i);

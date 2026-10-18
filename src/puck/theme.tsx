@@ -151,9 +151,9 @@ export function Media({
   } as CSSProperties;
   const empty = !image?.src || image.placeholder;
   const frame = empty ? (
-    <div className="media-frame media-placeholder grid h-full min-h-48 place-items-center">
-      <span className="pointer-events-none bg-[var(--color-background)] px-3 py-1 text-[0.68rem] uppercase tracking-[0.18em]">
-        Mídia
+    <div className="media-frame media-placeholder grid h-full min-h-48 place-items-end p-4 md:p-5">
+      <span className="pointer-events-none text-[0.65rem] uppercase tracking-[0.18em] text-[var(--color-foreground)]/45">
+        Foto
       </span>
     </div>
   ) : isVideoSrc(image.src) ? (

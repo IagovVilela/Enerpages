@@ -101,19 +101,14 @@ export function CanvasUpload({
           inputRef.current?.click();
         }}
         className={cn(
-          "rounded-lg px-3 py-2 text-xs font-semibold shadow transition disabled:opacity-50",
+          "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition disabled:opacity-50",
           hasFile
-            ? "bg-white text-neutral-900 opacity-0 hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
-            : "border border-dashed border-neutral-500/60 bg-white/95 text-neutral-800",
+            ? "bg-white text-neutral-900 opacity-0 shadow hover:opacity-100 focus-visible:opacity-100 group-hover:opacity-100"
+            : "border border-[var(--color-border)] bg-[var(--color-background)]/90 text-[var(--color-foreground)] opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
         )}
       >
-        {pending ? "Enviando…" : hasFile ? "Trocar arquivo" : "Carregar do dispositivo"}
+        {pending ? "Enviando…" : hasFile ? "Trocar" : "Enviar foto"}
       </button>
-      {!hasFile ? (
-        <p className="pointer-events-none max-w-[14rem] text-center text-[10px] text-neutral-600">
-          JPG, PNG, WEBP, GIF, MP4 ou WEBM. Arraste aqui ou use o botão.
-        </p>
-      ) : null}
       {error ? <span className="rounded bg-white px-2 py-1 text-[10px] text-red-700">{error}</span> : null}
     </div>
   );

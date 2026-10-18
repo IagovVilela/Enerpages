@@ -39,13 +39,13 @@ body:has(.landing) {
 }
 
 .media-placeholder {
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 10px,
-    color-mix(in oklab, var(--color-foreground) 14%, transparent) 10px,
-    color-mix(in oklab, var(--color-foreground) 14%, transparent) 11px
-  );
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--color-muted) 88%, var(--color-primary)) 0%,
+      var(--color-muted) 48%,
+      color-mix(in oklab, var(--color-muted) 82%, var(--color-foreground)) 100%
+    );
 }
 
 [data-image="sharp"] .media-frame,
