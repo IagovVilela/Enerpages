@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mapsEmbedFromAddress } from "@/lib/map-embed";
 import { ensureThemeContrast } from "@/lib/theme-contrast";
 import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
 import {
@@ -142,6 +143,9 @@ export function applyIntakeToDocument(document: PageDocument, payload: IntakePay
         props: {
           ...block.props,
           address,
+          embedUrl: block.props.embedUrl?.includes("output=embed") || block.props.embedUrl?.includes("/maps/embed")
+            ? block.props.embedUrl
+            : mapsEmbedFromAddress(address),
           note: block.props.note?.includes("substituir") ? "Venha nos visitar." : block.props.note,
         },
       };

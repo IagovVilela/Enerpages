@@ -6,6 +6,7 @@ import type { Animation, Layout, PropsOf } from "@/puck/schema";
 import { Media, ThemeLink } from "@/puck/theme";
 import { visibilityClass } from "@/puck/visibility";
 import { cn } from "@/lib/cn";
+import { toMapEmbedSrc } from "@/lib/map-embed";
 
 function readId(props: object) {
   const id = (props as { id?: unknown }).id;
@@ -618,7 +619,15 @@ export function Timeline(props: PropsOf<"Timeline">) {
 }
 
 export function MapBlock(props: PropsOf<"Map">) {
-  const map = props.embedUrl ? <iframe title={props.title} src={props.embedUrl} className="min-h-72 w-full border-0" loading="lazy" /> : <div className="media-placeholder grid min-h-72 place-items-center text-sm">Mapa após informar o endereço</div>;
+  const embed = toMapEmbedSrc(props.embedUrl, props.address);
+  const map = embed ? (
+    <iframe title={props.title} src={embed} className="min-h-72 w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+  ) : (
+    <div className="media-placeholder grid min-h-72 place-items-center gap-2 p-6 text-center text-sm">
+      <p>Informe o endereço da loja para exibir o mapa.</p>
+      <p className="text-xs text-[var(--color-foreground)]/55">Não use o site do Google — use o endereço ou o link “Incorporar mapa”.</p>
+    </div>
+  );
   const copy = <div><h2 className="font-display text-5xl">{props.title}</h2><p className="mt-4 text-lg">{props.address}</p><p className="mt-2 text-sm">{props.note}</p></div>;
   const body = {
     split: <div className="grid gap-8 md:grid-cols-2">{copy}{map}</div>,

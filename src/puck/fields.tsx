@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { MaskedPhoneInput } from "@/components/masked-phone-input";
+import { isLikelyPageUrl } from "@/lib/map-embed";
 import { uploadFile } from "@/puck/media-upload";
 import { isVideoSrc, type ImageField } from "@/puck/schema";
 
@@ -110,7 +111,17 @@ export function ImageControl({
             placeholder="https://…"
             onChange={(event) => {
               const src = event.target.value.trim();
-              onChange(src ? { src, alt: current.alt || "", placeholder: false } : empty);
+              if (!src) {
+                setError("");
+                onChange(empty);
+                return;
+              }
+              if (isLikelyPageUrl(src)) {
+                setError("Cole o link direto do arquivo (PNG/JPG) ou carregue do dispositivo — não use o site do Google.");
+                return;
+              }
+              setError("");
+              onChange({ src, alt: current.alt || "", placeholder: false });
             }}
           />
         </label>

@@ -9,6 +9,7 @@ import {
   resolveReferences,
 } from "@/lib/ai/segment-copy";
 import { getTemplateStyle, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { mapsEmbedFromAddress } from "@/lib/map-embed";
 import { ensureThemeContrast } from "@/lib/theme-contrast";
 import {
   BG_ARTS,
@@ -461,7 +462,7 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
           ...base,
           title: "Onde estamos",
           address: copy.address || "Endereço a substituir",
-          embedUrl: "",
+          embedUrl: copy.address ? mapsEmbedFromAddress(copy.address) : "",
           note: copy.address
             ? "Venha nos visitar ou fale conosco antes."
             : "Inclua o endereço real antes de publicar.",

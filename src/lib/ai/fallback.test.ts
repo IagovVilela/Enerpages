@@ -78,6 +78,7 @@ describe("generateDeterministic", () => {
     expect(doc.root.props.theme.colors.background.toLowerCase()).toBe("#111111");
     expect(doc.root.props.whatsapp.phone).toBe("11999990000");
     expect(map?.type === "Map" && map.props.address).toBe("Rua das Flores, 100");
+    expect(map?.type === "Map" && map.props.embedUrl).toContain("output=embed");
     expect(doc.content.some((block) => block.type === "Catalog")).toBe(true);
     expect(doc.content.some((block) => block.type === "Gallery")).toBe(false);
   });
