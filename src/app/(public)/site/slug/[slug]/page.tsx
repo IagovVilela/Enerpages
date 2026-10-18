@@ -93,9 +93,10 @@ export function metadataFor(page: PublicPage): Metadata {
   const url = page.customDomain ? `https://${page.customDomain}` : publicOrigin(page.slug);
   const title = seo?.title || page.seoTitle || page.clientName;
   const description = seo?.description || page.seoDescription || "";
-  const favicon = page.data?.root.props.favicon || page.logoUrl || undefined;
+  const favicon = (page.data?.root.props.favicon || page.logoUrl || "").trim() || undefined;
   return {
-    title,
+    /** absolute evita o template "%s · Enerpages" do layout raiz. */
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: {
@@ -104,7 +105,14 @@ export function metadataFor(page: PublicPage): Metadata {
       url,
       images: seo?.ogImage ? [seo.ogImage] : undefined,
     },
-    icons: favicon ? { icon: favicon } : undefined,
+    /** Substitui os ícones do layout raiz (favicon da marca do cliente). */
+    icons: favicon
+      ? {
+          icon: [{ url: favicon }],
+          shortcut: favicon,
+          apple: [{ url: favicon }],
+        }
+      : undefined,
   };
 }
 
