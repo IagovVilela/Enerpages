@@ -230,11 +230,27 @@ export function Picture(props: PropsOf<"Picture">) {
     portrait: "max-w-sm",
     wide: "max-w-5xl",
   }[props.variant];
+  const aspect = {
+    frame: "wide" as const,
+    bleed: "wide" as const,
+    portrait: "photo" as const,
+    wide: "video" as const,
+  }[props.variant];
   return (
     <Frame anchor={props.anchor} visibility={props.visibility} animation={props.animation} layout={props.layout} className="py-6">
       <figure className={className}>
-        <div className="overflow-hidden">
-          <Media image={props.image} blockId={readId(props)} path="image" zoom={props.zoom} posX={props.posX} posY={props.posY} className="min-h-64" />
+        <div className="overflow-hidden rounded-[var(--radius)]">
+          <Media
+            image={props.image}
+            blockId={readId(props)}
+            path="image"
+            fit="cover"
+            aspect={aspect}
+            zoom={props.zoom}
+            posX={props.posX}
+            posY={props.posY}
+            className="!min-h-0"
+          />
         </div>
         {props.caption ? <figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{props.caption}</figcaption> : null}
       </figure>

@@ -126,6 +126,17 @@ function DotCursor() {
   );
 }
 
+const MEDIA_ASPECT = {
+  auto: "",
+  square: "aspect-square",
+  video: "aspect-video",
+  photo: "aspect-[4/5]",
+  wide: "aspect-[16/10]",
+  logo: "aspect-[4/3]",
+} as const;
+
+export type MediaAspect = keyof typeof MEDIA_ASPECT;
+
 export function Media({
   image,
   className,
@@ -135,6 +146,7 @@ export function Media({
   posX = 50,
   posY = 50,
   fit = "cover",
+  aspect = "auto",
   emptyLabel = "Foto",
 }: {
   image: ImageField;
@@ -145,6 +157,7 @@ export function Media({
   posX?: number;
   posY?: number;
   fit?: "cover" | "contain";
+  aspect?: MediaAspect;
   emptyLabel?: string;
 }) {
   const page = usePage();
@@ -155,24 +168,35 @@ export function Media({
     transformOrigin: `${posX}% ${posY}%`,
   } as CSSProperties;
   const empty = !image?.src || image.placeholder;
+  const aspectClass = MEDIA_ASPECT[aspect];
+  const shell = cn(
+    "group relative w-full overflow-hidden",
+    aspectClass || "min-h-48",
+    className,
+  );
+  const surface = cn(
+    "media-frame absolute inset-0 overflow-hidden",
+    fit === "contain" ? "bg-[var(--color-muted)]/40" : "bg-[var(--color-muted)]/20",
+  );
+  const mediaClass = cn("absolute inset-0 h-full w-full", objectFit);
   const frame = empty ? (
-    <div className="media-frame media-placeholder grid h-full min-h-48 place-items-end p-4 md:p-5">
+    <div className={cn(surface, "media-placeholder grid place-items-end p-4 md:p-5")}>
       <span className="pointer-events-none text-[0.65rem] uppercase tracking-[0.18em] text-[var(--color-foreground)]/45">
         {emptyLabel}
       </span>
     </div>
   ) : isVideoSrc(image.src) ? (
-    <div className={cn("media-frame h-full overflow-hidden", fit === "contain" && "bg-[var(--color-muted)]/35")}>
-      <video src={image.src} className={cn("h-full w-full", objectFit)} style={crop} controls playsInline />
+    <div className={surface}>
+      <video src={image.src} className={mediaClass} style={crop} controls playsInline />
     </div>
   ) : (
-    <div className={cn("media-frame h-full overflow-hidden", fit === "contain" && "bg-[var(--color-muted)]/35")}>
+    <div className={surface}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={image.src} alt={image.alt} className={cn("h-full w-full", objectFit)} style={crop} />
+      <img src={image.src} alt={image.alt} className={mediaClass} style={crop} />
     </div>
   );
   return (
-    <div className={cn("group relative", className)}>
+    <div className={shell}>
       {frame}
       {page.editing && blockId && path ? <CanvasUpload blockId={blockId} path={path} current={image} /> : null}
     </div>

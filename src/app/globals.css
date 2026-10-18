@@ -38,6 +38,12 @@ body:has(.landing) {
   box-shadow: var(--shadow);
 }
 
+/* Garante recorte estável mesmo com fotos em proporções diferentes. */
+.media-frame img,
+.media-frame video {
+  max-width: none;
+}
+
 .media-placeholder {
   background:
     linear-gradient(

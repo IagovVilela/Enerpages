@@ -2,6 +2,7 @@
 
 import { registerOverlayPortal, setDeep } from "@puckeditor/core";
 import { useEffect, useRef, useState } from "react";
+import { prepareImageFile } from "@/lib/image-prepare";
 import type { ImageField } from "@/puck/schema";
 import { useStudioPuck } from "@/puck/use-studio-puck";
 import { cn } from "@/lib/cn";
@@ -9,8 +10,9 @@ import { cn } from "@/lib/cn";
 const ACCEPT = "image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm";
 
 export async function uploadFile(file: File) {
+  const prepared = file.type.startsWith("image/") ? await prepareImageFile(file) : file;
   const body = new FormData();
-  body.set("file", file);
+  body.set("file", prepared);
   const response = await fetch("/api/upload", { method: "POST", body });
   const payload = (await response.json()) as { url?: string; error?: string };
   if (!response.ok || !payload.url) return { error: payload.error || "Falha no envio" };

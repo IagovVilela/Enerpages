@@ -117,7 +117,7 @@ export function Hero(props: PropsOf<"Hero">) {
   const logoPanel = (className?: string) => (
     <div
       className={cn(
-        "grid min-h-[14rem] place-items-center rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)]/55 p-6 md:min-h-[16rem] md:p-8",
+        "overflow-hidden rounded-[var(--radius)] border border-[var(--color-border)] bg-[var(--color-muted)]/55 p-4 md:p-5",
         className,
       )}
     >
@@ -126,8 +126,9 @@ export function Hero(props: PropsOf<"Hero">) {
         blockId={id}
         path="image"
         fit="contain"
+        aspect="logo"
         emptyLabel="Logo da marca"
-        className="max-h-52 w-full md:max-h-64"
+        className="!min-h-0"
       />
     </div>
   );
@@ -141,14 +142,23 @@ export function Hero(props: PropsOf<"Hero">) {
   const sideMedia = (photoClass: string, spacerClass: string, logoClass?: string) => {
     if (logoMode) return logoPanel(logoClass);
     if (hasImage) {
-      return <Media image={props.image} blockId={id} path="image" fit="cover" className={photoClass} />;
+      return (
+        <Media
+          image={props.image}
+          blockId={id}
+          path="image"
+          fit="cover"
+          aspect="wide"
+          className={cn("!min-h-0", photoClass)}
+        />
+      );
     }
     return <div className={spacerClass} aria-hidden />;
   };
   const immersive =
     hasImage && !logoMode ? (
-      <div className="relative grid min-h-[88svh] items-end">
-        <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full" />
+      <div className="relative grid min-h-[72svh] items-end overflow-hidden md:min-h-[80svh]">
+        <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 !min-h-full" />
         <div className="relative max-w-3xl bg-[var(--color-background)]/88 p-6 md:p-10">{copy}</div>
       </div>
     ) : hasImage || logoMode ? (
@@ -166,7 +176,7 @@ export function Hero(props: PropsOf<"Hero">) {
     split: (
       <div className="grid items-center gap-10 lg:grid-cols-12">
         <div className="lg:col-span-7">{copy}</div>
-        {sideMedia("min-h-[28rem] lg:col-span-5", "hidden lg:col-span-5 lg:block", "lg:col-span-5")}
+        {sideMedia("lg:col-span-5", "hidden lg:col-span-5 lg:block", "lg:col-span-5")}
       </div>
     ),
     editorial: (
@@ -177,7 +187,7 @@ export function Hero(props: PropsOf<"Hero">) {
           <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
           {ctas}
         </div>
-        {sideMedia("min-h-72 md:col-span-5 md:min-h-[26rem]", "hidden md:col-span-5 md:block", "md:col-span-5")}
+        {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
       </div>
     ),
     immersive,
@@ -188,7 +198,7 @@ export function Hero(props: PropsOf<"Hero">) {
           {copy}
           {hasImage || logoMode ? (
             <div className={cn("mt-8", logoMode ? "md:max-w-md" : "md:w-2/3 md:justify-self-end")}>
-              {sideMedia("min-h-72", "hidden")}
+              {sideMedia("", "hidden")}
             </div>
           ) : null}
         </div>
@@ -196,8 +206,8 @@ export function Hero(props: PropsOf<"Hero">) {
     ),
     cinematic:
       hasImage && !logoMode ? (
-        <div className="relative grid min-h-[88svh] items-end bg-[#0f1419] text-[#fafafa]">
-          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full opacity-70" />
+        <div className="relative grid min-h-[72svh] items-end overflow-hidden bg-[#0f1419] text-[#fafafa] md:min-h-[80svh]">
+          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 !min-h-full opacity-70" />
           <div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div>
         </div>
       ) : (
@@ -206,13 +216,13 @@ export function Hero(props: PropsOf<"Hero">) {
     light: (
       <div className="relative grid items-center gap-8 bg-[#f5f0e8] px-0 py-6 text-[#1c1917] md:grid-cols-12 md:gap-10 md:py-10">
         <div className="relative max-w-3xl md:col-span-7">{copy}</div>
-        {sideMedia("min-h-72 md:col-span-5 md:min-h-[26rem]", "hidden md:col-span-5 md:block", "md:col-span-5")}
+        {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
       </div>
     ),
     brand:
       hasImage && !logoMode ? (
-        <div className="relative grid min-h-[80svh] items-end bg-[var(--color-primary)] text-[var(--color-background)]">
-          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 min-h-full opacity-40" />
+        <div className="relative grid min-h-[70svh] items-end overflow-hidden bg-[var(--color-primary)] text-[var(--color-background)]">
+          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 !min-h-full opacity-40" />
           <div className="relative max-w-3xl p-6 md:p-10">{copy}</div>
         </div>
       ) : logoMode ? (
@@ -243,12 +253,12 @@ export function About(props: PropsOf<"About">) {
           <p className="mt-6 max-w-prose text-lg leading-8">{props.body}</p>
           {points.length ? <div className="mt-8 grid gap-6">{points}</div> : null}
         </div>
-        <Media image={props.image} blockId={id} path="image" className="min-h-96" />
+        <Media image={props.image} blockId={id} path="image" fit="cover" aspect="wide" className="!min-h-0" />
       </div>
     ),
     overlap: (
       <div className="grid gap-6 md:grid-cols-[0.8fr_1.2fr]">
-        <Media image={props.image} blockId={id} path="image" className="min-h-96" />
+        <Media image={props.image} blockId={id} path="image" fit="cover" aspect="photo" className="!min-h-0" />
         <div className="bg-[var(--color-muted)] p-8 md:-ml-16 md:mt-16">
           <h2 className="font-display text-5xl leading-none">{props.title}</h2>
           <p className="mt-4 leading-7">{props.body}</p>
@@ -262,7 +272,7 @@ export function About(props: PropsOf<"About">) {
           <h2 className="mt-4 font-display text-[clamp(2.5rem,6.5cqw,5.25rem)] leading-[0.9] text-balance">{props.title}</h2>
           <p className="mt-8 max-w-2xl text-xl leading-9">{props.body}</p>
         </div>
-        <Media image={props.image} blockId={id} path="image" className="min-h-80" />
+        <Media image={props.image} blockId={id} path="image" fit="cover" aspect="wide" className="!min-h-0" />
       </div>
     ),
     sidebar: (
@@ -273,7 +283,7 @@ export function About(props: PropsOf<"About">) {
           <p className="mt-4 max-w-prose leading-7">{props.body}</p>
           {points.length ? <div className="mt-8 grid gap-4 md:grid-cols-3">{points}</div> : null}
         </div>
-        <Media image={props.image} blockId={id} path="image" className="min-h-72" />
+        <Media image={props.image} blockId={id} path="image" fit="cover" aspect="photo" className="!min-h-0" />
       </div>
     ),
   }[props.variant];

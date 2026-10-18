@@ -29,13 +29,18 @@ export function ImageControl({
     if (!file) return;
     setPending(true);
     setError("");
-    const result = await uploadFile(file);
-    setPending(false);
-    if (!result.url) {
-      setError(result.error || "Falha no envio");
-      return;
+    try {
+      const result = await uploadFile(file);
+      if (!result.url) {
+        setError(result.error || "Falha no envio");
+        return;
+      }
+      onChange({ src: result.url, alt: current.alt || file.name, placeholder: false });
+    } catch {
+      setError("Não foi possível tratar a imagem. Tente outro arquivo.");
+    } finally {
+      setPending(false);
     }
-    onChange({ src: result.url, alt: current.alt || file.name, placeholder: false });
   }
 
   return (
@@ -96,7 +101,7 @@ export function ImageControl({
       ) : null}
 
       <p className="text-[10px] leading-relaxed text-neutral-500">
-        JPEG, PNG, WEBP, GIF, MP4 ou WEBM. Arraste o arquivo aqui.
+        JPEG, PNG, WEBP, GIF, MP4 ou WEBM. Imagens grandes são redimensionadas automaticamente.
       </p>
 
       {error ? <p className="text-[11px] text-red-700">{error}</p> : null}
