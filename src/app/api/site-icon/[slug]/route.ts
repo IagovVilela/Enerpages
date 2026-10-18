@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/db";
 import { resolveSiteIconResponse, serveBrandFallback } from "@/lib/site-icon";
 
-export const runtime = "nodejs";
-
 /** Favicon do site do cliente (tenant). Fallback: marca Enerpages. */
 export async function GET(_request: Request, context: { params: Promise<{ slug: string }> }) {
   const { slug } = await context.params;

@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/db";
 import { resolveSiteIconResponse, serveBrandFallback } from "@/lib/site-icon";
 
-export const runtime = "nodejs";
-
 /** Favicon por domínio próprio do cliente. */
 export async function GET(_request: Request, context: { params: Promise<{ domain: string }> }) {
   const { domain } = await context.params;
