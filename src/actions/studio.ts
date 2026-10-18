@@ -1,12 +1,13 @@
 "use server";
 
-import { updateTag } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import type { Prisma, VersionSource } from "@prisma/client";
 import { requireAdmin } from "@/lib/admin";
 import { canvasToPuck, puckToCanvas } from "@/lib/canvas/bridge";
 import { parseSiteCanvasConfig, siteCanvasSchema } from "@/lib/canvas/site-canvas";
 import { prisma } from "@/lib/db";
 import { signPreview } from "@/lib/preview";
+import { parsePageTags } from "@/lib/segment-labels";
 import { slugError } from "@/lib/slug";
 import { blankDocument } from "@/puck/defaults";
 import { buildPageTemplate, isPageTemplateId, type PageTemplateId } from "@/puck/page-templates";
@@ -278,6 +279,24 @@ export async function updatePageMeta(pageId: string, input: { clientName: string
   }
 }
 
+export async function updatePageSegment(pageId: string, segment: string) {
+  await requireAdmin();
+  const resolved = SEGMENTS.find((item) => item === segment) ?? "local";
+  await prisma.page.update({ where: { id: pageId }, data: { segment: resolved } });
+  revalidatePath("/");
+  updateTag("pages:index");
+  return { ok: true as const };
+}
+
+export async function updatePageTags(pageId: string, tags: string[]) {
+  await requireAdmin();
+  const next = parsePageTags(tags);
+  await prisma.page.update({ where: { id: pageId }, data: { tags: next } });
+  revalidatePath("/");
+  updateTag("pages:index");
+  return { ok: true as const, tags: next };
+}
+
 export async function duplicatePage(pageId: string) {
   await requireAdmin();
   const page = await prisma.page.findUniqueOrThrow({ where: { id: pageId } });
@@ -291,6 +310,7 @@ export async function duplicatePage(pageId: string) {
       slug,
       clientName: `${page.clientName} cópia`,
       segment: page.segment,
+      tags: page.tags ?? [],
       draftData: page.draftData ?? {},
       seoTitle: page.seoTitle,
       seoDescription: page.seoDescription,

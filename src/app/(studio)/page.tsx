@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { archivePage, deletePage, duplicatePage } from "@/actions/studio";
+import { ClientsDashboard, type DashboardPageItem } from "@/components/clients-dashboard";
 import { prisma } from "@/lib/db";
 import { publicOrigin } from "@/lib/tenant";
-import { redirect } from "next/navigation";
 
 export default function DashboardPage() {
   return (
@@ -19,6 +18,24 @@ async function Dashboard() {
     include: { analytics: true, leads: { select: { id: true } } },
   });
 
+  const items: DashboardPageItem[] = pages.map((page) => {
+    const theme = readTheme(page.draftData);
+    const views = page.analytics.reduce((sum, row) => sum + row.views, 0);
+    return {
+      id: page.id,
+      clientName: page.clientName,
+      slug: page.slug,
+      segment: page.segment,
+      tags: page.tags ?? [],
+      status: page.status,
+      updatedAt: `${page.updatedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`,
+      views,
+      leads: page.leads.length,
+      publicUrl: page.status === "PUBLISHED" ? publicOrigin(page.slug) : null,
+      theme,
+    };
+  });
+
   return (
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -30,7 +47,7 @@ async function Dashboard() {
             Clientes
           </h1>
           <p className="mt-2 max-w-xl text-sm text-neutral-600">
-            Escolha um modelo, abra o editor e publique quando estiver pronto.
+            Filtre por tipo, marque identificadores e abra o editor quando estiver pronto.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -45,38 +62,10 @@ async function Dashboard() {
           </Link>
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2">
-        {pages.map((page) => {
-          const theme = readTheme(page.draftData);
-          const views = page.analytics.reduce((sum, row) => sum + row.views, 0);
-          return (
-            <article key={page.id} className="grid gap-4 border border-[var(--studio-line)] bg-white p-4 md:grid-cols-[7rem_1fr]">
-              <div className="grid min-h-28 content-end p-3" style={{ background: theme.background, color: theme.foreground }}>
-                <span className="h-2 w-8" style={{ background: theme.primary }} />
-                <strong className="mt-3 text-sm leading-tight">{page.clientName}</strong>
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-xl">{page.clientName}</h2>
-                  <span className="text-xs uppercase tracking-[0.14em]">{label(page.status)}</span>
-                </div>
-                <p className="text-sm text-neutral-600" suppressHydrationWarning>
-                  {page.segment} · editada {page.updatedAt.toISOString().slice(0, 16).replace("T", " ")} UTC
-                </p>
-                <p className="text-sm">{views} visitas · {page.leads.length} leads</p>
-                <div className="flex flex-wrap gap-3 text-sm">
-                  <Link href={`/pages/${page.id}`}>Editar</Link>
-                  {page.status === "PUBLISHED" ? <a href={publicOrigin(page.slug)}>Abrir site</a> : null}
-                  <form action={async () => { "use server"; redirect(`/pages/${await duplicatePage(page.id)}`); }}><button type="submit">Duplicar</button></form>
-                  <form action={async () => { "use server"; await archivePage(page.id); }}><button type="submit">Arquivar</button></form>
-                  <form action={async () => { "use server"; await deletePage(page.id); }}><button type="submit">Excluir</button></form>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-      {!pages.length ? (
+
+      {items.length ? (
+        <ClientsDashboard pages={items} />
+      ) : (
         <div className="border border-dashed border-[var(--studio-line)] bg-white/60 p-8 text-center">
           <p className="text-lg font-medium">Nenhuma página ainda</p>
           <p className="mt-2 text-sm text-neutral-600">Comece escolhendo um modelo de layout.</p>
@@ -84,19 +73,21 @@ async function Dashboard() {
             Nova página
           </Link>
         </div>
-      ) : null}
+      )}
     </main>
   );
 }
 
-function label(status: string) {
-  if (status === "PUBLISHED") return "No ar";
-  if (status === "ARCHIVED") return "Arquivada";
-  return "Rascunho";
-}
-
 function readTheme(data: unknown) {
-  const colors = (data as { root?: { props?: { theme?: { colors?: { background?: string; foreground?: string; primary?: string } } } } })?.root?.props?.theme?.colors;
+  const colors = (
+    data as {
+      root?: {
+        props?: {
+          theme?: { colors?: { background?: string; foreground?: string; primary?: string } };
+        };
+      };
+    }
+  )?.root?.props?.theme?.colors;
   return {
     background: colors?.background || "#f6f1ea",
     foreground: colors?.foreground || "#1c1410",

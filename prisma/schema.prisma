@@ -34,6 +34,8 @@ model Page {
   customDomain    String?        @unique
   clientName      String
   segment         String
+  /** Identificadores livres (ex.: VIP, prioridade, código do cliente). */
+  tags            String[]       @default([])
   status          PageStatus     @default(DRAFT)
   draftData       Json
   publishedData   Json?
