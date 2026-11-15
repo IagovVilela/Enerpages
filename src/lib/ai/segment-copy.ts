@@ -21,6 +21,121 @@ export type SegmentCopyBank = {
   catalogNotes: string[];
 };
 
+function shortBank(
+  headlines: [string, string, string],
+  taglines: [string, string, string],
+  aboutBodies: [string, string, string],
+  differentials: string[],
+  services: string[],
+  ctaTitles: [string, string, string],
+  tags: string[],
+): SegmentCopyBank {
+  return {
+    differentials,
+    references: differentials.slice(0, 4),
+    headlines,
+    taglines,
+    aboutBodies,
+    eyebrows: headlines.map((item) => item.split(" ")[0] ?? "Estúdio"),
+    serviceBlurbs: services.slice(0, 4),
+    processRecipes: [
+      [
+        { title: "Conversa", description: "Entender o pedido, o prazo e o que fica de fora." },
+        { title: "Proposta", description: "Escopo e condições por escrito, antes de começar." },
+        { title: "Entrega", description: "O combinado, com um canal para ajuste pontual." },
+      ],
+    ],
+    faqRecipes: [
+      [
+        { question: "Como começamos?", answer: "Pelo contato, com uma descrição curta do que você precisa." },
+        { question: "O valor é fechado?", answer: "O valor publicado é referência. O combinado final vai por escrito." },
+        { question: "Atendem fora da região?", answer: "Depende do serviço. Confirme no contato." },
+      ],
+    ],
+    ctaTitles,
+    marqueeExtras: tags,
+    galleryTags: tags,
+    catalogNotes: services.slice(0, 3),
+  };
+}
+
+function extraBanks(): Pick<Record<Segment, SegmentCopyBank>, "imobiliaria" | "arquitetura" | "hotelaria" | "fitness" | "confeitaria" | "estetica" | "odontologia" | "fotografia"> {
+  return {
+    imobiliaria: shortBank(
+      ["{name}: a casa certa, sem vitrine infinita", "Imóvel com endereço, não com adjetivo", "{name} · comprar, alugar, visitar"],
+      ["Seleção curta, busca visual e visita marcada.", "Menos anúncio, mais contexto do bairro.", "O valor real entra no lugar de “sob consulta”."],
+      ["{name} organiza a busca por tipo, bairro e faixa — a visita vem depois da seleção.", "Cada imóvel publicado tem um lugar na página, não um card genérico.", "A casa apresenta o que está disponível agora, com filtro na própria página."],
+      ["busca por bairro e faixa", "visita com horário combinado", "lançamento separado da revenda"],
+      ["Compra de casa", "Locação", "Lançamento", "Avaliação"],
+      ["Ver imóveis", "Agendar visita", "Falar com a casa"],
+      ["Casa", "Apartamento", "Bairro", "Visita"],
+    ),
+    arquitetura: shortBank(
+      ["{name}: obra com desenho", "Projeto que se explica em corte", "Do croqui à obra acompanhada"],
+      ["Portfólio em faixa, processo numerado, sem jargão de estande.", "Antes e depois no mesmo olhar.", "Cada projeto ocupa uma cena, não um card igual."],
+      ["{name} mostra o projeto como sequência: contexto, desenho e obra.", "O escritório publica método e obra, não uma grade de serviços genérica.", "A página separa o que é estudo, o que é obra e o que é acompanhamento."],
+      ["método visível", "obra acompanhada", "interiores com recorte próprio"],
+      ["Projeto residencial", "Reforma", "Interiores", "Acompanhamento de obra"],
+      ["Ver obras", "Pedir uma conversa", "Conhecer o método"],
+      ["Obra", "Corte", "Maquete", "Detalhe"],
+    ),
+    hotelaria: shortBank(
+      ["{name}: ficar, não só dormir", "Suíte com nome e vista", "A estadia começa na escolha do quarto"],
+      ["Lookbook de suítes e um pedido de datas sem calendário falso.", "Cada quarto tem tipo, lugar e número de hóspedes.", "O mapa fecha a página, a reserva abre a conversa."],
+      ["{name} apresenta as suítes como uma estadia, não como uma lista de tarifas.", "O hóspede filtra o que cabe na viagem e segue para o contato.", "A casa publica o que está à disposição, com tom de hospedagem e não de anúncio."],
+      ["suíte com identidade", "estadia curta ou longa", "café e silêncio no mesmo endereço"],
+      ["Suíte jardim", "Cabana", "Quarto casal", "Café da manhã"],
+      ["Ver datas", "Reservar estadia", "Falar com a casa"],
+      ["Suíte", "Jardim", "Vista", "Café"],
+    ),
+    fitness: shortBank(
+      ["{name}: treino com hora marcada", "A grade da semana, não um slogan", "Plano claro, aula com nome"],
+      ["Modalidades em índice, grade e planos lado a lado.", "Menos promessa de corpo, mais horário e método.", "A página separa aula, avaliação e plano."],
+      ["{name} publica a semana de treino e os planos sem esconder a letra miúda.", "Cada modalidade tem um lugar: coletivo, aparelho ou avaliação.", "O aluno vê a grade antes de pedir matrícula."],
+      ["grade publicada", "avaliação inicial", "plano sem letra escondida"],
+      ["Musculação", "Coletivo", "Avaliação", "Plano mensal"],
+      ["Ver a grade", "Pedir avaliação", "Conhecer os planos"],
+      ["Treino", "Aula", "Grade", "Plano"],
+    ),
+    confeitaria: shortBank(
+      ["{name}: encomenda com passo", "Doce de vitrine, festa sob medida", "A fornada de hoje, a mesa de amanhã"],
+      ["Vitrine, encomenda em etapas e uma cozinha que se mostra.", "O bolo não é um cardápio infinito.", "O pedido começa pelo tipo de mesa, não por um formulário cego."],
+      ["{name} separa o que está na vitrine do que se encomenda com antecedência.", "Cada doce tem ocasião: café, mesa ou festa.", "A página conduz o pedido em passos, sem carrinho falso."],
+      ["encomenda com prazo", "vitrine do dia", "mesa festiva sob medida"],
+      ["Bolo de festa", "Torta", "Mesa doce", "Café"],
+      ["Encomendar", "Ver a vitrine", "Falar da festa"],
+      ["Bolo", "Torta", "Mesa", "Forno"],
+    ),
+    estetica: shortBank(
+      ["{name}: protocolo, não milagre", "Cabine com hora e nome", "Cuidado em etapas, retorno marcado"],
+      ["Índice de serviços, agenda e uma explicação sem promessa.", "Cada protocolo diz o que é a sessão, não o que ela garante.", "A página separa rosto, corpo e retorno."],
+      ["{name} apresenta os cuidados como sessões com começo, meio e retorno.", "O atendimento explica o protocolo antes de marcar a cabine.", "Nada aqui promete transformação. O texto descreve o serviço."],
+      ["protocolo explicado", "retorno combinado", "cabine com horário"],
+      ["Rosto", "Corpo", "Cabelo", "Retorno"],
+      ["Agendar sessão", "Ver protocolos", "Falar com a cabine"],
+      ["Cabine", "Protocolo", "Sessão", "Retorno"],
+    ),
+    odontologia: shortBank(
+      ["{name}: consulta com explicação", "Cuidado odontológico, sem promessa", "Prevenção, avaliação e retorno"],
+      ["Serviços em índice, equipe e uma agenda. Sem antes-e-depois milagroso.", "A página informa o atendimento. O resultado clínico não se promete.", "Cada visita tem um motivo: avaliação, prevenção ou retorno."],
+      ["{name} descreve o atendimento odontológico com linguagem clara e sem promessa de resultado.", "A primeira conversa serve para entender o caso, não para vender um sorriso.", "Prevenção e retorno aparecem como parte do cuidado, não como garantia."],
+      ["avaliação sem pressão", "prevenção explicada", "retorno combinado"],
+      ["Avaliação", "Limpeza", "Prevenção", "Retorno"],
+      ["Agendar avaliação", "Conhecer o cuidado", "Falar com a clínica"],
+      ["Consulta", "Prevenção", "Equipe", "Sala"],
+    ),
+    fotografia: shortBank(
+      ["{name}: ensaio em sequência", "Foto que se folheia, não que se empilha", "Do briefing à entrega do arquivo"],
+      ["Faixa horizontal de imagens, processo e um pedido de data.", "Cada ensaio é uma cena, com começo e entrega.", "O arquivo final tem prazo e formato combinados."],
+      ["{name} mostra o trabalho como uma sequência de cenas, não como uma grade repetida.", "O ensaio começa num briefing curto e termina na entrega do arquivo.", "A página separa retrato, evento e o que fica de fora do pacote."],
+      ["ensaio com roteiro", "entrega de arquivo", "edição inclusa no combinado"],
+      ["Retrato", "Evento", "Ensaio", "Edição"],
+      ["Ver ensaios", "Pedir uma data", "Falar do trabalho"],
+      ["Ensaio", "Retrato", "Luz", "Arquivo"],
+    ),
+  };
+}
+
 const BANKS: Record<Segment, SegmentCopyBank> = {
   moda: {
     differentials: [
@@ -568,6 +683,7 @@ const BANKS: Record<Segment, SegmentCopyBank> = {
     galleryTags: ["Serviço", "Antes", "Depois", "Equipe"],
     catalogNotes: ["Sob orçamento", "Visita técnica", "Avulso"],
   },
+  ...extraBanks(),
 };
 
 export function getSegmentCopy(segment: string): SegmentCopyBank {

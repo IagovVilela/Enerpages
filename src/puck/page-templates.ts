@@ -1,9 +1,9 @@
-import { ARCHETYPES, FONT_BY_PERSONALITY, STYLE_BY_PERSONALITY } from "@/lib/ai/archetypes";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
+import { EXTRA_META } from "@/lib/ai/segment-roster";
 import { TEMPLATE_STYLES } from "@/lib/ai/template-styles";
 import { PAGE_TEMPLATE_IDS, type PageTemplateId } from "@/puck/page-templates-ids";
-import { pageDataSchema, type Block, type Briefing, type PageDocument } from "@/puck/schema";
+import { pageDataSchema, type Briefing, type PageDocument } from "@/puck/schema";
 
 export { PAGE_TEMPLATE_IDS, type PageTemplateId };
 
@@ -17,6 +17,78 @@ export type PageTemplateMeta = {
 };
 
 export const PAGE_TEMPLATE_META: PageTemplateMeta[] = [
+  {
+    id: "vertice",
+    label: "Vértice",
+    tagline: "Imobiliária: hero em foto, busca visual e seleção de imóveis.",
+    vibe: "Alto padrão",
+    swatch: "#c6a97e",
+    layoutHint: "Hero · Números · Catálogo · Bairros",
+  },
+  {
+    id: "ferraz",
+    label: "Ferraz",
+    tagline: "Advocacia sóbria: índice, manifesto, equipe e artigos.",
+    vibe: "Editorial jurídico",
+    swatch: "#6e1d2a",
+    layoutHint: "Hero · Atuação · Processo · Equipe",
+  },
+  {
+    id: "essenza",
+    label: "Essenza",
+    tagline: "Clínica clara, com equipe, dúvidas e barra de agendamento.",
+    vibe: "Saúde",
+    swatch: "#7d8b74",
+    layoutHint: "Hero · Serviços · Equipe · Agenda",
+  },
+  {
+    id: "lenha",
+    label: "Lenha",
+    tagline: "Restaurante escuro: carta, sala, reserva e mapa.",
+    vibe: "Brasa",
+    swatch: "#e07a3d",
+    layoutHint: "Hero · Carta · Reserva · Mapa",
+  },
+  {
+    id: "linea",
+    label: "Linea",
+    tagline: "Arquitetura: obras, comparador de projeto e método.",
+    vibe: "Estúdio",
+    swatch: "#c8c2b4",
+    layoutHint: "Hero · Obras · Antes/depois · Processo",
+  },
+  {
+    id: "alisio",
+    label: "Casa Alísio",
+    tagline: "Pousada: suítes, fotos e barra de estadia.",
+    vibe: "Refúgio",
+    swatch: "#8aa39a",
+    layoutHint: "Hero · Suítes · Galeria · Mapa",
+  },
+  {
+    id: "navalha",
+    label: "Dom Navalha",
+    tagline: "Barbearia: serviços, barbeiros, agenda e clube.",
+    vibe: "Ritual",
+    swatch: "#c6a15b",
+    layoutHint: "Hero · Serviços · Agenda · Clube",
+  },
+  {
+    id: "pulso",
+    label: "Pulso",
+    tagline: "Academia: modalidades, grade da semana e planos.",
+    vibe: "Treino",
+    swatch: "#c6f135",
+    layoutHint: "Hero · Modalidades · Semana · Planos",
+  },
+  {
+    id: "maison",
+    label: "Maison Lis",
+    tagline: "Confeitaria: vitrine, encomenda em passos e cozinha.",
+    vibe: "Forno",
+    swatch: "#c47b8a",
+    layoutHint: "Hero · Vitrine · Encomenda · Cozinha",
+  },
   {
     id: "blank",
     label: "Em branco",
@@ -137,6 +209,7 @@ export const PAGE_TEMPLATE_META: PageTemplateMeta[] = [
     swatch: "#e7ff3d",
     layoutHint: "Hero · Marquee · Catálogo · Galeria",
   },
+  ...EXTRA_META,
 ];
 
 function briefingFor(clientName: string, segment: Briefing["segment"]): Briefing {
@@ -167,60 +240,14 @@ export function buildPageTemplate(
 ): PageDocument {
   const style = TEMPLATE_STYLES[templateId];
   const effectiveSegment = style.preferredSegment && segment === "local" ? style.preferredSegment : segment;
-  const base = generateDeterministic(briefingFor(clientName, effectiveSegment), style.direction ?? 0);
-  const archetype = ARCHETYPES[effectiveSegment] ?? ARCHETYPES.local;
-
-  let content: Block[] = [...base.content];
-  if (style.blocks?.length) {
-    const byType = new Map(base.content.map((block) => [block.type, block]));
-    const full = generateDeterministic(briefingFor(clientName, effectiveSegment), (style.direction ?? 0) + 2);
-    for (const block of full.content) {
-      if (!byType.has(block.type)) byType.set(block.type, block);
-    }
-    content = style.blocks
-      .map((type) => byType.get(type))
-      .filter((block): block is Block => Boolean(block));
-  }
-
-  content = content.map((block, index) => {
-    const nextProps = {
-      ...block.props,
-      animation: {
-        ...block.props.animation,
-        preset: style.motion,
-        delay: (index % 4) * 0.05,
-      },
-      ...(block.type === "Hero" && style.heroVariant ? { variant: style.heroVariant } : {}),
-    };
-    return { type: block.type, props: nextProps } as Block;
-  });
-
-  const document = {
-    ...base,
-    root: {
-      props: {
-        ...base.root.props,
-        theme: {
-          personality: style.personality,
-          colors: style.colors,
-          fonts: FONT_BY_PERSONALITY[style.personality],
-          ...STYLE_BY_PERSONALITY[style.personality],
-          bgArt: base.root.props.theme.bgArt ?? "none",
-          bgArtColor: base.root.props.theme.bgArtColor ?? "",
-          bgArtStrength: base.root.props.theme.bgArtStrength ?? 45,
-        },
-        seo: {
-          title: `${clientName.trim()} · ${PAGE_TEMPLATE_META.find((item) => item.id === templateId)?.label ?? archetype.label}`,
-          description: base.root.props.seo.description,
-          ogImage: "",
-        },
-        archetype: effectiveSegment,
-      },
-    },
-    content,
-  };
-
-  return enforceCompliance(pageDataSchema.parse(document), effectiveSegment);
+  const base = generateDeterministic(
+    { ...briefingFor(clientName, effectiveSegment), templateId },
+    0,
+  );
+  const label = PAGE_TEMPLATE_META.find((item) => item.id === templateId)?.label ?? style.personality;
+  base.root.props.seo.title = `${clientName.trim()} · ${label}`;
+  base.root.props.archetype = effectiveSegment;
+  return enforceCompliance(pageDataSchema.parse(base), effectiveSegment);
 }
 
 export function isPageTemplateId(value: string): value is PageTemplateId {

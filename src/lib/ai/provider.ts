@@ -244,9 +244,11 @@ export async function generateJSON<T>(prompt: string, schema: z.ZodType<T>, syst
         return { data, provider: name };
       } catch (error) {
         lastError = error;
+        const hasNext = names.indexOf(name) < names.length - 1;
+        if (isQuotaError(error) && hasNext) break;
         if (!isRetryableError(error)) break;
         if (attempt < 1) {
-          await sleep(retryDelayMs(error, delay));
+          await sleep(Math.min(retryDelayMs(error, delay), hasNext ? 1_500 : 4_000));
           delay = Math.min(delay * 2, 8_000);
         }
       }

@@ -27,6 +27,14 @@ import { cn } from "@/lib/cn";
 
 type Version = { id: string; version: number; label: string | null; source: string; createdAt: string };
 
+function droppedActionMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  if (message === "Failed to fetch") {
+    return "A ligação com o estúdio caiu. Recarregue a página e tente de novo.";
+  }
+  return "Não foi possível concluir. Tente de novo.";
+}
+
 export function StudioEditor(props: {
   pageId: string;
   clientName: string;
@@ -112,16 +120,22 @@ function StudioEditorInner({
     setStatus("Não salvo");
     const timer = window.setTimeout(async () => {
       setStatus("Salvando…");
-      const result = await saveDraft(pageId, latest.current);
-      if (result.ok) {
-        setDirty(false);
-        setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
-        if (pageStatus === "PUBLISHED") {
-          toast("Rascunho salvo. O site público só muda depois de Publicar.");
+      try {
+        const result = await saveDraft(pageId, latest.current);
+        if (result.ok) {
+          setDirty(false);
+          setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
+          if (pageStatus === "PUBLISHED") {
+            toast("Rascunho salvo. O site público só muda depois de Publicar.");
+          }
+        } else {
+          setStatus(result.error);
+          toast(result.error || "Não foi possível salvar.");
         }
-      } else {
-        setStatus(result.error);
-        toast(result.error || "Não foi possível salvar.");
+      } catch (error) {
+        const message = droppedActionMessage(error);
+        setStatus(message);
+        toast(message);
       }
     }, 1500);
     return () => window.clearTimeout(timer);
@@ -133,14 +147,20 @@ function StudioEditorInner({
         event.preventDefault();
         void (async () => {
           setStatus("Salvando…");
-          const result = await saveDraft(pageId, latest.current);
-          if (result.ok) {
-            setDirty(false);
-            setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
-            toast(pageStatus === "PUBLISHED" ? "Rascunho salvo. Publique para ir ao ar." : "Salvo.");
-          } else {
-            setStatus(result.error);
-            toast(result.error || "Não foi possível salvar.");
+          try {
+            const result = await saveDraft(pageId, latest.current);
+            if (result.ok) {
+              setDirty(false);
+              setStatus(pageStatus === "PUBLISHED" ? "Rascunho salvo — publique para atualizar o site" : "Salvo");
+              toast(pageStatus === "PUBLISHED" ? "Rascunho salvo. Publique para ir ao ar." : "Salvo.");
+            } else {
+              setStatus(result.error);
+              toast(result.error || "Não foi possível salvar.");
+            }
+          } catch (error) {
+            const message = droppedActionMessage(error);
+            setStatus(message);
+            toast(message);
           }
         })();
       }
@@ -152,7 +172,14 @@ function StudioEditorInner({
   async function doApplyTemplate(id: PageTemplateId) {
     setBusyTemplate(true);
     setMessage("");
-    const result = await applyPageTemplate(pageId, id, clientName, segment);
+    let result: Awaited<ReturnType<typeof applyPageTemplate>>;
+    try {
+      result = await applyPageTemplate(pageId, id, clientName, segment);
+    } catch (error) {
+      setBusyTemplate(false);
+      setMessage(droppedActionMessage(error));
+      return;
+    }
     setBusyTemplate(false);
     setConfirmTemplate(null);
     setTemplatesOpen(false);
@@ -172,7 +199,15 @@ function StudioEditorInner({
 
   async function publishLatest() {
     setStatus("Publicando…");
-    const result = await publishPage(pageId, latest.current);
+    let result: Awaited<ReturnType<typeof publishPage>>;
+    try {
+      result = await publishPage(pageId, latest.current);
+    } catch (error) {
+      const message = droppedActionMessage(error);
+      setStatus(message);
+      toast(message);
+      return false;
+    }
     if (result.ok) {
       setDirty(false);
       onPageStatusChange("PUBLISHED");
@@ -223,7 +258,14 @@ function StudioEditorInner({
                   danger: true,
                 });
                 if (!ok) return;
-                await unpublishPage(pageId);
+                try {
+                  await unpublishPage(pageId);
+                } catch (error) {
+                  const message = droppedActionMessage(error);
+                  setMessage(message);
+                  toast(message);
+                  return;
+                }
                 onPageStatusChange("DRAFT");
                 setMessage("Página despublicada.");
                 setStatus("Rascunho");
@@ -504,7 +546,11 @@ function HistoryTools({ pageId, versions, onRestore }: { pageId: string; version
               type="button"
               className="block w-full border-b py-2 text-left"
               onClick={async () => {
-                await restoreVersion(pageId, version.id);
+                try {
+                  await restoreVersion(pageId, version.id);
+                } catch {
+                  return;
+                }
                 onRestore();
               }}
             >

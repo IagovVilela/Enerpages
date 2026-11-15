@@ -82,6 +82,78 @@ function withChrome(body: ArchetypeBlock[], whatsapp = false): ArchetypeBlock[] 
   ];
 }
 
+function extraArchetypes(): Record<string, Archetype> {
+  const pack = (
+    label: string,
+    schemaType: string,
+    ethical: boolean,
+    directions: [string, string, string],
+    services: string[],
+    recipes: Archetype["recipes"],
+    forbidden: RegExp[] = [],
+  ): Archetype => ({
+    label,
+    schemaType,
+    ethical,
+    personalities: ["editorial", "minimal", "bold"],
+    directions,
+    motions: ["fade", "mask-reveal", "slide-up"],
+    bgArts: ["none", "horizon", "dots"],
+    palettes: [
+      paper("#f7f4ef", "#1a1814", "#1a1814", "#e7e0d6", "#f3efe8", "#e3dcd2"),
+      paper("#14120f", "#f6f1ea", "#c6a97e", "#1c1a16", "#1a1814", "#2e2a24"),
+      paper("#f3f6f4", "#1c2420", "#3f6f5b", "#e4eee6", "#eef3ee", "#d5e0d8"),
+    ],
+    recipes,
+    blocks: withChrome(recipes[0]!),
+    services,
+    forbidden,
+  });
+  const health = [/garantid[oa]s?/i, /cura garantida/i, /100\s*%/i, /resultado assegurado/i];
+  return {
+    imobiliaria: pack("Imobiliária", "RealEstateAgent", false, ["busca cinematográfica", "índice de planta", "faixa de bairros"], ["Compra", "Locação", "Lançamento", "Avaliação", "Visita"], [
+      ["Hero", "Stats", "Catalog", "About", "Services", "Contact"],
+      ["Hero", "About", "Services", "Gallery", "Contact"],
+      ["Hero", "Catalog", "Map", "Stats", "Contact"],
+    ]),
+    arquitetura: pack("Arquitetura", "ProfessionalService", false, ["editorial de obra", "faixa de projetos", "coluna de processo"], ["Projeto", "Obra", "Interiores", "Consultoria", "Acompanhamento"], [
+      ["Hero", "About", "Gallery", "BeforeAfter", "Services", "Process", "Contact"],
+      ["Hero", "Gallery", "Stats", "Process", "Contact"],
+      ["Hero", "BeforeAfter", "Catalog", "About", "Contact"],
+    ]),
+    hotelaria: pack("Hotelaria", "LodgingBusiness", false, ["estadia em lookbook", "carta de suítes", "refúgio editorial"], ["Suíte", "Cabana", "Café", "Experiência", "Estadia"], [
+      ["Hero", "About", "Catalog", "Gallery", "Map", "Contact"],
+      ["Hero", "Catalog", "Booking", "Map", "Contact"],
+      ["Hero", "About", "Gallery", "Map", "Contact"],
+    ]),
+    fitness: pack("Fitness", "ExerciseGym", false, ["grade de treino", "faixa de modalidades", "planos em faixa"], ["Musculação", "Coletivo", "Avaliação", "Plano", "Aula"], [
+      ["Hero", "Services", "Process", "Stats", "Pricing", "Cta"],
+      ["Hero", "Gallery", "Team", "Pricing", "Cta"],
+      ["Hero", "Stats", "Catalog", "Cta", "Contact"],
+    ]),
+    confeitaria: pack("Confeitaria", "Bakery", false, ["encomenda em passos", "vitrine doce", "faixa de fornada"], ["Bolo", "Torta", "Mesa", "Encomenda", "Café"], [
+      ["Hero", "Catalog", "Process", "About", "Cta"],
+      ["Hero", "Gallery", "Marquee", "About", "Contact"],
+      ["Hero", "Process", "Services", "Faq", "Cta"],
+    ]),
+    estetica: pack("Estética", "HealthAndBeautyBusiness", false, ["índice de cabine", "faixa de ritual", "coluna de cuidado"], ["Rosto", "Corpo", "Cabelo", "Protocolo", "Retorno"], [
+      ["Hero", "Services", "About", "Booking", "Faq", "Contact"],
+      ["Hero", "Gallery", "Team", "Pricing", "Contact"],
+      ["Hero", "About", "Process", "Booking", "Contact"],
+    ]),
+    odontologia: pack("Odontologia", "Dentist", true, ["consulta clara", "cuidado em coluna", "faixa da clínica"], ["Avaliação", "Prevenção", "Limpeza", "Retorno", "Orientação"], [
+      ["Hero", "Services", "Team", "Booking", "Faq", "Contact"],
+      ["Hero", "About", "Process", "Faq", "Map", "Contact"],
+      ["Hero", "Gallery", "Stats", "Booking", "Contact"],
+    ], health),
+    fotografia: pack("Fotografia", "ProfessionalService", false, ["faixa de ensaio", "arquivo em mosaico", "coluna de processo"], ["Ensaio", "Evento", "Retrato", "Edição", "Entrega"], [
+      ["Hero", "Gallery", "About", "Contact"],
+      ["Hero", "About", "Gallery", "Services", "Contact"],
+      ["Hero", "Catalog", "Marquee", "Cta", "Contact"],
+    ]),
+  };
+}
+
 export const ARCHETYPES: Record<string, Archetype> = {
   moda: {
     label: "Moda",
@@ -336,6 +408,7 @@ export const ARCHETYPES: Record<string, Archetype> = {
     services: ["Atendimento", "Orçamento", "Visita", "Execução", "Pós-serviço"],
     forbidden: [],
   },
+  ...extraArchetypes(),
 };
 
 export const FONT_BY_PERSONALITY: Record<

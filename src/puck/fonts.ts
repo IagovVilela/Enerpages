@@ -1,4 +1,4 @@
-import { Bebas_Neue, Cormorant_Garamond, Figtree, Fraunces, Instrument_Serif, Literata, Manrope, Newsreader, Outfit, Syne } from "next/font/google";
+import { Bebas_Neue, Bodoni_Moda, Cormorant_Garamond, Figtree, Fraunces, Instrument_Serif, Jost, Literata, Manrope, Newsreader, Outfit, Syne } from "next/font/google";
 import { BODY_FONTS, DISPLAY_FONTS } from "@/puck/schema";
 
 const fraunces = Fraunces({ subsets: ["latin"], variable: "--font-fraunces", display: "swap" });
@@ -7,6 +7,8 @@ const instrument = Instrument_Serif({ subsets: ["latin"], weight: "400", variabl
 const bebas = Bebas_Neue({ subsets: ["latin"], weight: "400", variable: "--font-bebas", display: "swap" });
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne", display: "swap" });
 const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: ["500", "600"], variable: "--font-cormorant", display: "swap" });
+const bodoni = Bodoni_Moda({ subsets: ["latin"], style: ["normal", "italic"], variable: "--font-bodoni", display: "swap" });
+const jost = Jost({ subsets: ["latin"], variable: "--font-jost", display: "swap" });
 const outfit = Outfit({ subsets: ["latin"], variable: "--font-outfit", display: "swap" });
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-figtree", display: "swap" });
 const manrope = Manrope({ subsets: ["latin"], variable: "--font-manrope", display: "swap" });
@@ -19,6 +21,7 @@ const displayVars: Record<(typeof DISPLAY_FONTS)[number], { className: string; v
   "Bebas Neue": { className: bebas.variable, variable: "--font-bebas" },
   Syne: { className: syne.variable, variable: "--font-syne" },
   "Cormorant Garamond": { className: cormorant.variable, variable: "--font-cormorant" },
+  "Bodoni Moda": { className: bodoni.variable, variable: "--font-bodoni" },
 };
 
 const bodyVars: Record<(typeof BODY_FONTS)[number], { className: string; variable: string }> = {
@@ -26,6 +29,7 @@ const bodyVars: Record<(typeof BODY_FONTS)[number], { className: string; variabl
   Figtree: { className: figtree.variable, variable: "--font-figtree" },
   Manrope: { className: manrope.variable, variable: "--font-manrope" },
   Literata: { className: literata.variable, variable: "--font-literata" },
+  Jost: { className: jost.variable, variable: "--font-jost" },
 };
 
 export function fontAssets(display: string, body: string) {

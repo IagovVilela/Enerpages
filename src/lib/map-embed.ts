@@ -2,24 +2,42 @@
 
 const PLACEHOLDER_ADDRESS = /endereço a substituir|endereco a substituir|seu endereço|informe o endereço/i;
 
-export function isUsableMapAddress(address: string) {
-  const q = address.trim();
+/** No editor, o Puck troca o texto por um componente. O endereço real fica em props.value. */
+function plainText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const props = record.props;
+    if (props && typeof props === "object" && "value" in props) {
+      return plainText((props as { value?: unknown }).value);
+    }
+    for (const key of ["text", "title", "label", "value", "name", "description", "body", "quote"]) {
+      if (key in record) return plainText(record[key]);
+    }
+  }
+  return "";
+}
+
+export function isUsableMapAddress(address: unknown) {
+  const q = plainText(address).trim();
   if (!q) return false;
   if (PLACEHOLDER_ADDRESS.test(q)) return false;
   return true;
 }
 
-export function mapsEmbedFromAddress(address: string) {
-  if (!isUsableMapAddress(address)) return "";
-  return `https://maps.google.com/maps?q=${encodeURIComponent(address.trim())}&hl=pt-BR&z=15&output=embed`;
+export function mapsEmbedFromAddress(address: unknown) {
+  const q = plainText(address).trim();
+  if (!isUsableMapAddress(q)) return "";
+  return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&hl=pt-BR&z=15&output=embed`;
 }
 
 /**
  * Aceita URL de embed, link de compartilhamento do Maps, ou rejeita páginas
  * como www.google.com (que geram ERR_BLOCKED_BY_RESPONSE no iframe).
  */
-export function toMapEmbedSrc(embedUrl: string, address = "") {
-  const url = embedUrl.trim();
+export function toMapEmbedSrc(embedUrl: unknown, address: unknown = "") {
+  const url = plainText(embedUrl).trim();
   if (url) {
     const converted = convertMapsUrl(url);
     if (converted) return converted;

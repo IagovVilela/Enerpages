@@ -124,12 +124,94 @@ body:has(.landing) {
   to { filter: blur(0); }
 }
 
+@keyframes kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+.hero-kenburns img,
+.hero-kenburns video {
+  animation: kenburns 22s cubic-bezier(0.22, 0.8, 0.2, 1) forwards;
+}
+
+@keyframes hero-rise {
+  from { opacity: 0; transform: translateY(22px); }
+  to { opacity: 1; transform: none; }
+}
+
+.hero-rise {
+  animation: hero-rise 0.9s cubic-bezier(0.22, 0.8, 0.2, 1) both;
+}
+
+.entrance-curtain.is-leaving {
+  animation: curtain-out 0.9s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+
+.entrance-wipe.is-leaving {
+  animation: wipe-out 0.85s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+}
+
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 60;
+  height: 2px;
+  width: 100%;
+  transform-origin: left center;
+  background: var(--color-primary);
+  pointer-events: none;
+}
+
+.gallery-track {
+  scroll-snap-type: x mandatory;
+}
+
+.gallery-track > * {
+  scroll-snap-align: start;
+}
+
+.about-sticky {
+  position: sticky;
+  top: 1.5rem;
+}
+
+.landing[data-spacing="compact"] :is(h1, h2).font-display {
+  font-size: clamp(1.75rem, 4.2vw, 3rem);
+}
+
+.landing[data-spacing="airy"] :is(h1, h2).font-display {
+  font-size: clamp(3rem, 7.5vw, 6.25rem);
+}
+
+@keyframes curtain-out {
+  to { transform: translateY(-105%); }
+}
+
+@keyframes wipe-out {
+  to { clip-path: inset(0 0 0 100%); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .stagger-children > *,
   .marquee-track,
   .preset-mask,
-  .preset-blur {
+  .preset-blur,
+  .hero-kenburns img,
+  .hero-kenburns video,
+  .hero-rise,
+  .entrance-curtain,
+  .entrance-wipe {
     animation: none !important;
+  }
+
+  .entrance-curtain,
+  .entrance-wipe {
+    display: none;
+  }
+
+  .about-sticky {
+    position: static;
   }
 
   .marquee-track {

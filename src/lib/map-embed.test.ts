@@ -9,6 +9,13 @@ describe("toMapEmbedSrc", () => {
     expect(src).toContain(encodeURIComponent("Rua das Flores, 100"));
   });
 
+  it("lê o endereço quando o editor entrega um componente", () => {
+    const editable = { props: { value: "Rua das Flores, 100" } };
+    const src = toMapEmbedSrc("", editable);
+    expect(src).toContain(encodeURIComponent("Rua das Flores, 100"));
+    expect(toMapEmbedSrc({ props: { value: "" } }, { props: { value: "Endereço a substituir" } })).toBe("");
+  });
+
   it("ignora placeholder de endereço", () => {
     expect(toMapEmbedSrc("", "Endereço a substituir")).toBe("");
     expect(isUsableMapAddress("Endereço a substituir")).toBe(false);

@@ -25,10 +25,25 @@ export function GalleryBoard({ variant, images, blockId = "" }: { variant: Props
         </div>
       )}
       <LayoutGroup>
-        <div className={cn(variant === "filmstrip" ? "flex gap-4 overflow-x-auto" : variant === "feature" ? "grid gap-4 md:grid-cols-2" : "columns-2 gap-4 md:columns-3")}>
+        <div
+          className={cn(
+            variant === "track" && "gallery-track flex gap-4 overflow-x-auto pb-2",
+            variant === "filmstrip" && "flex gap-4 overflow-x-auto",
+            variant === "feature" && "grid gap-4 md:grid-cols-2",
+            variant !== "track" && variant !== "filmstrip" && variant !== "feature" && "columns-2 gap-4 md:columns-3",
+          )}
+        >
           {visible.map(({ image, index }) => (
-            <motion.figure layout key={image.caption + image.tag} className={cn("mb-4", variant === "filmstrip" && "min-w-64")}>
-              <Media image={image.image} blockId={blockId} path={`images[${index}].image`} className={cn("min-h-40", variant === "feature" && "first:min-h-80")} />
+            <motion.figure
+              layout
+              key={image.caption + image.tag}
+              className={cn(
+                "mb-4",
+                variant === "filmstrip" && "min-w-64",
+                variant === "track" && "w-[72%] shrink-0 snap-start md:w-[42%]",
+              )}
+            >
+              <Media image={image.image} blockId={blockId} path={`images[${index}].image`} className={cn("min-h-40", (variant === "feature" || variant === "track") && "min-h-72")} />
               <figcaption className="mt-2 text-xs uppercase tracking-[0.14em]">{image.caption}</figcaption>
             </motion.figure>
           ))}

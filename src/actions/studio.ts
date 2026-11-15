@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from "next/cache";
 import type { Prisma, VersionSource } from "@prisma/client";
+import { generateLockedTemplate } from "@/lib/ai/generate";
 import { requireAdmin } from "@/lib/admin";
 import { canvasToPuck, puckToCanvas } from "@/lib/canvas/bridge";
 import { parseSiteCanvasConfig, siteCanvasSchema } from "@/lib/canvas/site-canvas";
@@ -11,7 +12,7 @@ import { parsePageTags } from "@/lib/segment-labels";
 import { slugError } from "@/lib/slug";
 import { blankDocument } from "@/puck/defaults";
 import { buildPageTemplate, isPageTemplateId, type PageTemplateId } from "@/puck/page-templates";
-import { pageDataSchema, SEGMENTS, type PageDocument } from "@/puck/schema";
+import { briefingSchema, pageDataSchema, SEGMENTS, type PageDocument } from "@/puck/schema";
 
 function asJson(value: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
@@ -199,6 +200,12 @@ export async function createPage(input: {
   slug: string;
   data?: PageDocument;
   templateId?: PageTemplateId | string;
+  useAi?: boolean;
+  audience?: string;
+  tone?: string;
+  differentials?: string;
+  services?: string;
+  goal?: "vender" | "agendar" | "captar";
 }) {
   await requireAdmin();
   const resolved = await uniqueSlug(input.slug);
@@ -206,9 +213,27 @@ export async function createPage(input: {
   const slug = resolved.slug;
   const segment = SEGMENTS.find((item) => item === input.segment) ?? "local";
   const templateId = input.templateId && isPageTemplateId(input.templateId) ? input.templateId : null;
-  const data =
-    input.data ??
-    (templateId ? buildPageTemplate(templateId, input.clientName, segment) : blankDocument(input.clientName, segment));
+  let warning: string | undefined;
+  let fromAi = false;
+  let data = input.data;
+  if (!data && input.useAi && templateId) {
+    const briefing = briefingSchema.parse({
+      clientName: input.clientName,
+      segment,
+      audience: input.audience ?? "",
+      tone: input.tone ?? "",
+      differentials: input.differentials ?? "",
+      services: input.services ?? "",
+      goal: input.goal ?? "captar",
+      slug,
+      templateId,
+    });
+    const generated = await generateLockedTemplate(briefing);
+    data = generated.data;
+    warning = generated.warning;
+    fromAi = generated.source === "ai";
+  }
+  data ??= templateId ? buildPageTemplate(templateId, input.clientName, segment) : blankDocument(input.clientName, segment);
   const parsed = pageDataSchema.safeParse(data);
   if (!parsed.success) {
     return {
@@ -228,13 +253,13 @@ export async function createPage(input: {
           create: {
             version: 1,
             data: parsed.data,
-            source: "MANUAL",
-            label: templateId ? `Modelo ${templateId}` : "Criação",
+            source: fromAi ? "AI" : "MANUAL",
+            label: templateId ? `Modelo ${templateId}${fromAi ? " · IA" : ""}` : "Criação",
           },
         },
       },
     });
-    return { ok: true as const, id: page.id };
+    return { ok: true as const, id: page.id, warning };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/unique|slug/i.test(message)) {

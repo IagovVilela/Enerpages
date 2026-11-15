@@ -14,7 +14,7 @@ function useMotionReady() {
 }
 
 const ease = {
-  easeOut: [0.22, 1, 0.36, 1] as const,
+  easeOut: [0.22, 0.8, 0.2, 1] as const,
   easeInOut: [0.65, 0, 0.35, 1] as const,
   spring: { type: "spring" as const, stiffness: 180, damping: 22 },
   linear: "linear" as const,

@@ -6,6 +6,7 @@ import { createPage } from "@/actions/studio";
 import { ProposalPreviewModal } from "@/components/proposal-preview";
 import { RequestProgress } from "@/components/request-progress";
 import { applyIntakeToDocument, type IntakePayload } from "@/lib/intake/schema";
+import { segmentLabel } from "@/lib/segment-labels";
 import { normalizeSlug } from "@/lib/slug";
 import { SEGMENTS, type Briefing, type PageDocument } from "@/puck/schema";
 
@@ -177,7 +178,7 @@ export function BriefingForm({
         >
           {SEGMENTS.map((item) => (
             <option key={item} value={item}>
-              {item}
+              {segmentLabel(item)}
             </option>
           ))}
         </select>

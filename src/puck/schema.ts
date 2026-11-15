@@ -10,6 +10,14 @@ export const SEGMENTS = [
   "barbearia",
   "infoproduto",
   "local",
+  "imobiliaria",
+  "arquitetura",
+  "hotelaria",
+  "fitness",
+  "confeitaria",
+  "estetica",
+  "odontologia",
+  "fotografia",
 ] as const;
 
 export const PERSONALITIES = [
@@ -29,9 +37,14 @@ export const DISPLAY_FONTS = [
   "Bebas Neue",
   "Syne",
   "Cormorant Garamond",
+  "Bodoni Moda",
 ] as const;
 
-export const BODY_FONTS = ["Outfit", "Figtree", "Manrope", "Literata"] as const;
+export const BODY_FONTS = ["Outfit", "Figtree", "Manrope", "Literata", "Jost"] as const;
+
+export const ENTRANCES = ["none", "curtain", "wipe"] as const;
+
+export const HERO_DOCKS = ["none", "search", "reserve", "booking", "stay"] as const;
 
 export const PRESETS = [
   "none",
@@ -47,12 +60,12 @@ export const PRESETS = [
 ] as const;
 
 export const VARIANTS = {
-  Navbar: ["bar", "centered", "split", "minimal"],
+  Navbar: ["bar", "centered", "split", "minimal", "overlay"],
   Hero: ["banner", "split", "editorial", "immersive", "asymmetric", "cinematic", "light", "brand"],
-  About: ["columns", "overlap", "manifesto", "sidebar"],
+  About: ["columns", "overlap", "manifesto", "sidebar", "sticky"],
   Services: ["grid", "list", "bento", "index"],
   Catalog: ["shelf", "lookbook", "rows", "mosaic"],
-  Gallery: ["masonry", "filmstrip", "grid", "feature"],
+  Gallery: ["masonry", "filmstrip", "grid", "feature", "track"],
   Testimonials: ["quotes", "large", "cards", "single"],
   Stats: ["row", "split", "band", "stacked"],
   Process: ["steps", "timeline", "numbered", "horizontal"],
@@ -150,6 +163,9 @@ export const themeSchema = z.object({
   image: z.enum(["sharp", "rounded", "framed", "bleed"]),
   spacing: z.enum(["compact", "comfortable", "airy"]),
   cursor: z.enum(["default", "dot"]),
+  entrance: z.enum(["none", "curtain", "wipe"]).default("none"),
+  /** Fio fino no topo, proporcional à leitura da página. */
+  progress: z.boolean().default(false),
   bgArt: z.enum(BG_ARTS).default("none"),
   bgArtColor: z.string().default(""),
   bgArtStrength: z.coerce.number().min(5).max(100).default(45),
@@ -203,6 +219,9 @@ export const blockSchema = z.discriminatedUnion("type", [
     image: imageSchema,
     /** logo = marca/banner com contain; photo = foto de fundo com cover. */
     imageMode: z.enum(["logo", "photo"]).default("logo"),
+    /** Barra do hero. Filtra o catálogo desta página; o botão desce até a âncora. */
+    dock: z.enum(HERO_DOCKS).default("none"),
+    dockHref: z.string().default("#contato"),
     primaryCta: linkSchema,
     secondaryCta: linkSchema,
   }),
@@ -221,7 +240,17 @@ export const blockSchema = z.discriminatedUnion("type", [
   block("Catalog", VARIANTS.Catalog, {
     eyebrow: z.string(),
     title: z.string(),
-    items: z.array(feature.extend({ price: z.string(), image: imageSchema })),
+    items: z.array(
+      feature.extend({
+        price: z.string(),
+        image: imageSchema,
+        /** Aba da barra (Comprar, Jantar, Suíte). Vazio entra em qualquer aba. */
+        group: z.string().default(""),
+        place: z.string().default(""),
+        kind: z.string().default(""),
+        band: z.string().default(""),
+      }),
+    ),
   }),
   block("Gallery", VARIANTS.Gallery, {
     title: z.string(),

@@ -10,6 +10,14 @@ const LABELS: Record<(typeof SEGMENTS)[number], string> = {
   barbearia: "Barbearia",
   infoproduto: "Infoproduto",
   local: "Negócio local",
+  imobiliaria: "Imobiliária",
+  arquitetura: "Arquitetura",
+  hotelaria: "Hotelaria",
+  fitness: "Fitness",
+  confeitaria: "Confeitaria",
+  estetica: "Estética",
+  odontologia: "Odontologia",
+  fotografia: "Fotografia",
 };
 
 export function segmentLabel(segment: string) {

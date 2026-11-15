@@ -79,7 +79,10 @@ describe("documento", () => {
 
   it("não publica depoimento inventado nem promessa jurídica", () => {
     const portfolio = generateDeterministic({ ...briefing, clientName: "Helena Vilela", segment: "portfolio" }, 0);
-    expect(portfolio.content.some((block) => block.type === "Gallery")).toBe(false);
+    const gallery = portfolio.content.find((block) => block.type === "Gallery");
+    if (gallery?.type === "Gallery") {
+      expect(gallery.props.images.every((item) => item.image.placeholder || !item.image.src)).toBe(true);
+    }
     const withQuotes = generateDeterministic(
       { ...briefing, clientName: "Helena Vilela", segment: "portfolio", templateId: "editorial" },
       0,
@@ -110,6 +113,25 @@ describe("modelos de página", () => {
     }
     const blank = buildPageTemplate("blank", "Cliente Teste", "local");
     expect(blank.content.map((block) => block.type)).toEqual(["Navbar", "Hero", "Footer"]);
+
+    const vertice = buildPageTemplate("vertice", "Casa Lima", "local");
+    expect(vertice.root.props.theme.entrance).toBe("curtain");
+    expect(vertice.root.props.theme.fonts.display).toBe("Bodoni Moda");
+    const verticeHero = vertice.content.find((block) => block.type === "Hero");
+    const verticeNav = vertice.content.find((block) => block.type === "Navbar");
+    expect(verticeHero?.type === "Hero" && verticeHero.props.variant).toBe("cinematic");
+    expect(verticeHero?.type === "Hero" && verticeHero.props.dock).toBe("search");
+    expect(verticeHero?.type === "Hero" && verticeHero.props.title).toMatch(/\*/);
+    expect(verticeHero?.type === "Hero" && verticeHero.props.imageMode).toBe("photo");
+    expect(verticeNav?.type === "Navbar" && verticeNav.props.variant).toBe("overlay");
+    const verticeCatalog = vertice.content.find((block) => block.type === "Catalog");
+    expect(verticeCatalog?.type === "Catalog" && verticeCatalog.props.items.some((item) => item.group === "Comprar")).toBe(true);
+    expect(verticeCatalog?.type === "Catalog" && verticeCatalog.props.items.some((item) => item.group === "Alugar")).toBe(true);
+
+    const ferraz = buildPageTemplate("ferraz", "Escritório Lima", "local");
+    expect(ferraz.root.props.archetype).toBe("advocacia");
+    expect(ferraz.content.map((block) => block.type)).toContain("Team");
+    expect(JSON.stringify(ferraz).toLowerCase()).not.toMatch(/ganho de causa|resultado garantido/);
   });
 });
 

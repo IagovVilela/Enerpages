@@ -2,27 +2,28 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ARCHETYPES, directionLabelFor } from "@/lib/ai/archetypes";
-import { resolveProposalTemplate } from "@/lib/ai/template-styles";
-import { PAGE_TEMPLATE_META } from "@/puck/page-templates";
+import { isPageTemplateId, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { buildPageTemplate, PAGE_TEMPLATE_META } from "@/puck/page-templates";
+import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
 import { generateJSON, isQuotaError, providerOrder } from "@/lib/ai/provider";
 import {
-  BLOCK_TYPES,
   PERSONALITIES,
   PRESETS,
   VARIANTS,
   pageDataSchema,
   type Block,
-  type BlockType,
   type Briefing,
   type PageDocument,
 } from "@/puck/schema";
 
 const structureSchema = z.object({
+  templateId: z.string(),
   personality: z.enum(PERSONALITIES),
   paletteIndex: z.number().int().min(0).max(8),
-  blocks: z.array(z.object({ type: z.enum(BLOCK_TYPES as [BlockType, ...BlockType[]]), variant: z.string() })).min(4).max(14),
+  entrance: z.enum(["none", "curtain", "wipe"]),
+  heroVariant: z.string(),
 });
 
 const PERSONALITY_ALIASES: Record<string, (typeof PERSONALITIES)[number]> = {
@@ -48,12 +49,6 @@ const PERSONALITY_ALIASES: Record<string, (typeof PERSONALITIES)[number]> = {
   organic: "organic",
 };
 
-function resolveBlockType(raw: unknown): BlockType | null {
-  if (typeof raw !== "string") return null;
-  const key = raw.trim().toLowerCase();
-  return BLOCK_TYPES.find((type) => type.toLowerCase() === key) ?? null;
-}
-
 function resolvePersonality(raw: unknown): (typeof PERSONALITIES)[number] {
   if (typeof raw !== "string") return "editorial";
   const key = raw.trim().toLowerCase();
@@ -61,35 +56,18 @@ function resolvePersonality(raw: unknown): (typeof PERSONALITIES)[number] {
   return PERSONALITY_ALIASES[key] ?? "editorial";
 }
 
-function resolveVariant(type: BlockType, raw: unknown) {
-  const variants = VARIANTS[type] as readonly string[];
-  if (typeof raw === "string" && variants.includes(raw)) return raw;
-  if (typeof raw === "string") {
-    const match = variants.find((item) => item.toLowerCase() === raw.trim().toLowerCase());
-    if (match) return match;
-  }
-  return variants[0];
-}
-
 function coerceStructure(raw: unknown) {
   if (!raw || typeof raw !== "object") return raw;
   const input = raw as Record<string, unknown>;
-  const blocks = Array.isArray(input.blocks)
-    ? input.blocks
-        .map((item) => {
-          if (!item || typeof item !== "object") return null;
-          const row = item as Record<string, unknown>;
-          const type = resolveBlockType(row.type);
-          if (!type) return null;
-          return { type, variant: resolveVariant(type, row.variant) };
-        })
-        .filter((item): item is { type: BlockType; variant: string } => Boolean(item))
-    : [];
   const paletteRaw = Number(input.paletteIndex);
+  const heroRaw = typeof input.heroVariant === "string" ? input.heroVariant.trim() : "";
+  const heroVariant = (VARIANTS.Hero as readonly string[]).find((item) => item.toLowerCase() === heroRaw.toLowerCase()) ?? "";
   return {
+    templateId: typeof input.templateId === "string" ? input.templateId.trim() : "",
     personality: resolvePersonality(input.personality),
     paletteIndex: Number.isFinite(paletteRaw) ? Math.max(0, Math.min(8, Math.round(paletteRaw))) : 0,
-    blocks,
+    entrance: input.entrance === "curtain" || input.entrance === "wipe" ? input.entrance : "none",
+    heroVariant,
   };
 }
 
@@ -115,7 +93,7 @@ const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 4 })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 5 })).digest("hex");
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -142,28 +120,41 @@ async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<
   return { ...fresh, cached: false };
 }
 
-function applyStructure(base: PageDocument, structure: z.infer<typeof structureSchema>, briefing: Briefing) {
+function applyStructure(structure: z.infer<typeof structureSchema>, briefing: Briefing) {
+  const templateId = isPageTemplateId(structure.templateId)
+    ? structure.templateId
+    : resolveProposalTemplate(briefing, 0);
   const archetype = ARCHETYPES[briefing.segment] ?? ARCHETYPES.local;
   const palette = archetype.palettes[structure.paletteIndex % archetype.palettes.length];
   const next = generateDeterministic(
-    { ...briefing, tone: structure.personality },
-    structure.paletteIndex,
+    { ...briefing, templateId, personality: structure.personality },
+    0,
   );
   next.root.props.theme = {
     ...next.root.props.theme,
     personality: structure.personality,
+    entrance: structure.entrance,
     colors: { ...next.root.props.theme.colors, ...palette },
   };
-  const byType = new Map(base.content.map((block) => [block.type, block]));
-  const content: Block[] = [];
-  for (const item of structure.blocks) {
-    const source = byType.get(item.type) ?? next.content.find((block) => block.type === item.type);
-    if (!source || source.type !== item.type) continue;
-    const variants = VARIANTS[item.type] as readonly string[];
-    const variant = variants.includes(item.variant) ? item.variant : source.props.variant;
-    content.push({ ...source, props: { ...source.props, variant } } as Block);
+  if (!structure.heroVariant) return next;
+  next.content = next.content.map((block) => {
+    if (block.type !== "Hero") return block;
+    const variants = VARIANTS.Hero as readonly string[];
+    const variant = variants.includes(structure.heroVariant) ? structure.heroVariant : block.props.variant;
+    return { ...block, props: { ...block.props, variant } } as Block;
+  });
+  return next;
+}
+
+const ITEM_COPY_KEYS = ["title", "description", "quote", "name", "role", "text", "label", "body"] as const;
+
+function overlayCopy(item: Record<string, unknown>, patch: Record<string, string> | undefined) {
+  if (!patch) return item;
+  const next = { ...item };
+  for (const key of ITEM_COPY_KEYS) {
+    const value = patch[key];
+    if (value) next[key] = value;
   }
-  if (content.length >= 4) next.content = content;
   return next;
 }
 
@@ -178,16 +169,14 @@ function applyTexts(document: PageDocument, texts: z.infer<typeof textSchema>) {
       if (text[key] && key in props) props[key] = text[key];
     }
     if (text.items && Array.isArray(props.items)) {
-      props.items = (props.items as Array<Record<string, unknown>>).map((item, itemIndex) => ({
-        ...item,
-        ...(text.items?.[itemIndex] ?? {}),
-      }));
+      props.items = (props.items as Array<Record<string, unknown>>).map((item, itemIndex) =>
+        overlayCopy(item, text.items?.[itemIndex]),
+      );
     }
     if (text.items && Array.isArray(props.points)) {
-      props.points = (props.points as Array<Record<string, unknown>>).map((item, itemIndex) => ({
-        ...item,
-        ...(text.items?.[itemIndex] ?? {}),
-      }));
+      props.points = (props.points as Array<Record<string, unknown>>).map((item, itemIndex) =>
+        overlayCopy(item, text.items?.[itemIndex]),
+      );
     }
     return { ...block, props } as Block;
   });
@@ -253,17 +242,16 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
         [
           `Briefing: ${JSON.stringify(briefing)}.`,
           `Direção criativa obrigatória: ${directionLabel}.`,
-          `personality: um de [${PERSONALITIES.join(", ")}].`,
-          "paletteIndex: inteiro 0-8.",
-          `blocks: 5 a 9 itens; type exatamente um de [${BLOCK_TYPES.join(", ")}] (Cta, não CTA).`,
-          "variant: string curta compatível com o tipo (ex.: Hero split|editorial|immersive).",
-          "Inclua Navbar e Footer. Varie a ordem. Não invente types.",
+          "Responda em três camadas, sem inventar blocos nem HTML.",
+          `Anatomia: templateId exatamente um de [${PAGE_TEMPLATE_IDS.join(", ")}].`,
+          `Vibe: personality um de [${PERSONALITIES.join(", ")}]; paletteIndex inteiro 0-8; entrance "none", "curtain" ou "wipe"; heroVariant um de [${VARIANTS.Hero.join(", ")}].`,
+          "O modelo escolhido já define a ordem das seções. Não devolva lista de blocks.",
         ].join(" "),
         structureInputSchema,
         SYSTEM,
       ),
     );
-    let document = applyStructure(fallback, structure.data, briefing);
+    let document = applyStructure(structure.data, briefing);
     const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
       generateJSON(
         `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
@@ -308,6 +296,64 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       },
     );
   });
+}
+
+/** Mantém o modelo escolhido e pede só os textos. Se a IA falhar, devolve o modelo intacto. */
+export async function generateLockedTemplate(briefing: Briefing): Promise<{
+  data: PageDocument;
+  source: "ai" | "fallback";
+  warning?: string;
+}> {
+  const templateId = isPageTemplateId(briefing.templateId) ? briefing.templateId : null;
+  const base = templateId
+    ? buildPageTemplate(templateId, briefing.clientName, briefing.segment)
+    : generateDeterministic(briefing, 0);
+
+  if (!templateId) {
+    return { data: base, source: "fallback" };
+  }
+  if (providerOrder().length === 0) {
+    return {
+      data: base,
+      source: "fallback",
+      warning: "Nenhuma chave de IA configurada. A página saiu do modelo.",
+    };
+  }
+
+  try {
+    const texts = await cached(cacheKey("template-texts", briefing, 0), textSchema, () =>
+      generateJSON(
+        [
+          `Reescreva os textos da página de ${briefing.clientName} (${briefing.segment}).`,
+          `Público: ${briefing.audience || "não informado"}.`,
+          `Tom: ${briefing.tone || "o tom do modelo"}.`,
+          `Diferenciais: ${briefing.differentials || "não informados"}.`,
+          `Serviços: ${briefing.services || "não informados"}.`,
+          `Objetivo: ${briefing.goal}.`,
+          `Blocos, nesta ordem: ${base.content.map((block) => block.type).join(", ")}.`,
+          "Mantenha a quantidade de items de cada bloco.",
+          "Se um título tiver *trecho*, preserve um trecho curto entre asteriscos.",
+          "Sem depoimentos inventados, sem nomes de clientes e sem promessa de resultado.",
+          "JSON: seoTitle, seoDescription, blocks[] com title, subtitle, eyebrow, body, note e items opcionais.",
+        ].join(" "),
+        textSchema,
+        SYSTEM,
+      ),
+    );
+    const document = applyTexts(structuredClone(base), texts.data);
+    return {
+      data: enforceCompliance(pageDataSchema.parse(document), briefing.segment),
+      source: "ai",
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    const warning = isQuotaError(error)
+      ? "A cota de IA acabou. A página saiu do modelo, sem texto novo."
+      : /Tempo esgotado|timeout/i.test(message)
+        ? "A IA não respondeu a tempo. A página saiu do modelo."
+        : "A IA falhou. A página saiu do modelo.";
+    return { data: base, source: "fallback", warning };
+  }
 }
 
 export async function generateProposals(briefing: Briefing) {

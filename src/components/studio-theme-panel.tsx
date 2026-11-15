@@ -136,6 +136,26 @@ export function ThemePanel() {
           ))}
         </div>
         <label className="grid gap-1 text-xs">
+          Entrada da página
+          <select
+            className="border px-2 py-1.5 text-sm"
+            value={theme.entrance ?? "none"}
+            onChange={(event) => update({ ...theme, entrance: event.target.value as Theme["entrance"] })}
+          >
+            <option value="none">Nenhuma</option>
+            <option value="curtain">Cortina</option>
+            <option value="wipe">Wipe</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={theme.progress ?? false}
+            onChange={(event) => update({ ...theme, progress: event.target.checked })}
+          />
+          Fio de progresso na leitura
+        </label>
+        <label className="grid gap-1 text-xs">
           Fonte de título
           <select
             className="border px-2 py-1.5 text-sm"

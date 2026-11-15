@@ -8,7 +8,8 @@ import {
   resolveDifferentials,
   resolveReferences,
 } from "@/lib/ai/segment-copy";
-import { getTemplateStyle, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { applyModelSeed } from "@/lib/ai/model-seeds";
+import { getTemplateStyle, resolveProposalTemplate, type TemplateStyle } from "@/lib/ai/template-styles";
 import { mapsEmbedFromAddress } from "@/lib/map-embed";
 import { ensureThemeContrast } from "@/lib/theme-contrast";
 import {
@@ -139,29 +140,33 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
       ? `${name} — tom ${briefing.tone.trim()}. ${tagline}`
       : aboutBody;
 
-  /** Blocos que ficam feios sem foto — substituímos por conteúdo tipográfico. */
+  /** Blocos que ficam feios sem foto — substituímos por conteúdo tipográfico, salvo quando o modelo pede a seção. */
   const mediaHeavy = new Set<BlockType>(["Gallery", "Video", "BeforeAfter"]);
+  const explicit = new Set(template.blocks ?? []);
   const textFillers: BlockType[] = ["About", "Process", "Faq", "Services"];
   const rawRecipe =
     template.blocks?.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp") ??
     archetype.recipes[dir] ??
     archetype.recipes[0]!;
   const recipeBody = rawRecipe.map((type, index) => {
-    if (!mediaHeavy.has(type)) return type;
+    if (!mediaHeavy.has(type) || explicit.has(type)) return type;
     return textFillers[(seed + index + dir) % textFillers.length]!;
   });
   const withWhatsApp =
     Boolean(briefing.whatsapp?.trim()) ||
     Boolean(template.blocks?.includes("WhatsApp")) ||
-    archetype.blocks.includes("WhatsApp");
+    (!template.blocks && archetype.blocks.includes("WhatsApp"));
   const wantsMap = Boolean(briefing.address?.trim()) || recipeBody.includes("Map");
   const sequence: BlockType[] = [
     "Navbar",
     ...recipeBody.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp"),
     ...(wantsMap ? (["Map"] as const) : []),
-    ...(recipeBody.includes("Cta") || recipeBody.includes("Contact") || recipeBody.includes("Booking")
-      ? []
-      : (["Cta"] as const)),
+    ...(!template.blocks &&
+    !recipeBody.includes("Cta") &&
+    !recipeBody.includes("Contact") &&
+    !recipeBody.includes("Booking")
+      ? (["Cta"] as const)
+      : []),
     "Footer",
     ...(withWhatsApp ? (["WhatsApp"] as const) : []),
   ].filter((type, index, arr) => arr.indexOf(type) === index) as BlockType[];
@@ -193,20 +198,25 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
 
   /** Sem fotos reais: prioriza heróis tipográficos / banner de logo (nada de immersive/cinematic vazios). */
   const safeHeroVariants = ["banner", "split", "editorial", "light", "asymmetric"] as const;
-  const content = sequence.map((type, index) => {
-    const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
-    let variant = pick(VARIANTS[type], seed + index + dir * 3);
-    if (type === "Hero") {
-      const preferred = template.heroVariant;
-      variant =
-        preferred && (safeHeroVariants as readonly string[]).includes(preferred)
-          ? (preferred as (typeof safeHeroVariants)[number])
-          : safeHeroVariants[dir % safeHeroVariants.length]!;
-    }
-    if (type === "Catalog") variant = pick(["rows", "shelf", "lookbook"] as const, seed + dir);
-    if (type === "Services") variant = pick(["list", "grid", "index"] as const, seed + dir + 1);
-    return makeBlock(type, { ...base, variant }, copy);
-  });
+  const content = applyModelSeed(
+    sequence.map((type, index) => {
+      const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
+      let variant: string = pick(VARIANTS[type], seed + index + dir * 3);
+      if (type === "Hero") {
+        const preferred = template.heroVariant;
+        const allowed = VARIANTS.Hero as readonly string[];
+        variant =
+          preferred && allowed.includes(preferred)
+            ? preferred
+            : safeHeroVariants[dir % safeHeroVariants.length]!;
+      }
+      const styled = template.blockVariants?.[type];
+      if (styled && (VARIANTS[type] as readonly string[]).includes(styled)) variant = styled;
+      return stampTemplate(makeBlock(type, { ...base, variant: variant as typeof base.variant }, copy), template);
+    }),
+    templateId,
+    name,
+  );
 
   const document: PageDocument = {
     root: {
@@ -214,9 +224,24 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
         theme: {
           personality,
           colors,
-          fonts: FONT_BY_PERSONALITY[personality],
-          ...STYLE_BY_PERSONALITY[personality],
-          bgArt: bgArt === "noise" || bgArt === "checker" ? (dir === 0 ? "none" : "horizon") : bgArt,
+          fonts: template.fonts ?? FONT_BY_PERSONALITY[personality],
+          radius: template.radius ?? STYLE_BY_PERSONALITY[personality].radius,
+          shadow: template.shadow ?? STYLE_BY_PERSONALITY[personality].shadow,
+          button: template.button ?? STYLE_BY_PERSONALITY[personality].button,
+          image: template.image ?? STYLE_BY_PERSONALITY[personality].image,
+          spacing: template.spacing ?? STYLE_BY_PERSONALITY[personality].spacing,
+          cursor: template.cursor ?? STYLE_BY_PERSONALITY[personality].cursor,
+          entrance: template.entrance ?? "none",
+          progress: template.progress ?? false,
+          bgArt:
+            template.bgArt ??
+            (template.entrance === "curtain"
+              ? "none"
+              : bgArt === "noise" || bgArt === "checker"
+                ? dir === 0
+                  ? "none"
+                  : "horizon"
+                : bgArt),
           bgArtColor: colors.foreground,
           bgArtStrength: 18 + (dir % 3) * 8,
         },
@@ -297,6 +322,8 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
           subtitle: copy.tagline || copy.intro,
           image: img,
           imageMode: "logo" as const,
+          dock: "none" as const,
+          dockHref: "#contato",
           primaryCta: link,
           secondaryCta: { label: copy.ethical ? "Conhecer o trabalho" : "Ver mais", href: "#about" },
         },
@@ -342,6 +369,10 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
             title,
             description: copy.diffs[i % copy.diffs.length] || "Substitua pela descrição real.",
             price: copy.catalogNotes[i % copy.catalogNotes.length] || "Sob consulta",
+            group: "",
+            place: "",
+            kind: "",
+            band: "",
             image: img,
           })),
         },
@@ -602,6 +633,33 @@ function makeBlock(type: BlockType, base: ReturnType<typeof chrome>, copy: Copy)
       return _exhaustive;
     }
   }
+}
+
+const DOCK_HREF = {
+  none: "#contato",
+  search: "#catalog",
+  reserve: "#booking",
+  booking: "#booking",
+  stay: "#catalog",
+} as const;
+
+function stampTemplate(block: Block, template: TemplateStyle): Block {
+  if (block.type === "Navbar" && template.navbarVariant && (VARIANTS.Navbar as readonly string[]).includes(template.navbarVariant)) {
+    return { ...block, props: { ...block.props, variant: template.navbarVariant as typeof block.props.variant } };
+  }
+  if (block.type !== "Hero") return block;
+  const photo = block.props.variant === "cinematic" || block.props.variant === "immersive";
+  const dock = template.heroDock && template.heroDock !== "none" ? template.heroDock : "none";
+  return {
+    ...block,
+    props: {
+      ...block.props,
+      imageMode: photo ? "photo" : block.props.imageMode,
+      dock,
+      dockHref: DOCK_HREF[dock],
+      layout: photo ? { paddingY: "none", maxWidth: "full" } : block.props.layout,
+    },
+  };
 }
 
 function freshBlockId(type: BlockType) {

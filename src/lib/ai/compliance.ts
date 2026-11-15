@@ -5,6 +5,7 @@ const REPLACEMENTS: Record<string, string> = {
   advocacia: "Atendimento jurídico responsável, com linguagem clara e sem promessa de resultado.",
   psicologia: "Acolhimento profissional. Cada processo é singular e não há promessa de resultado.",
   clinica: "Informação de serviço de saúde, sem promessa de cura ou resultado.",
+  odontologia: "Informação de cuidado odontológico, sem promessa de resultado.",
   infoproduto: "Conteúdo educacional. Resultados dependem de dedicação individual.",
 };
 

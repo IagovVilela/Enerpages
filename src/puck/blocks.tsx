@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { isValidElement, type ReactNode } from "react";
 import { BeforeAfterBoard, ContactForm, FaqList, GalleryBoard, WhatsAppAnchor } from "@/puck/interactive";
+import { CatalogBoard } from "@/puck/catalog-board";
 import { Counter, MotionPreset, SplitText } from "@/puck/motion";
 import { layoutInnerClass, layoutSectionClass, layoutSectionStyle } from "@/puck/layout";
 import type { Animation, Layout, PropsOf } from "@/puck/schema";
-import { Media, ThemeLink } from "@/puck/theme";
+import { EditorNote, HeroDock, MapEmpty, Media, ThemeLink } from "@/puck/theme";
 import { visibilityClass } from "@/puck/visibility";
 import { cn } from "@/lib/cn";
 import { toMapEmbedSrc } from "@/lib/map-embed";
@@ -25,6 +26,11 @@ function asText(value: unknown): string {
     }
   }
   return "";
+}
+
+function renderText(value: unknown): ReactNode {
+  if (isValidElement(value)) return value;
+  return asText(value);
 }
 
 function Section({
@@ -52,11 +58,35 @@ function Section({
   );
 }
 
-function Heading({ text, animation, className }: { text: string; animation: Animation; className?: string }) {
-  if (animation.preset === "split-words" || animation.preset === "split-chars") {
-    return <SplitText text={text} mode={animation.preset === "split-words" ? "words" : "chars"} className={className} />;
+function AccentText({ text, className }: { text: unknown; className?: string }) {
+  if (isValidElement(text)) {
+    return <span className={cn("whitespace-pre-line", className)}>{text}</span>;
   }
-  return <span className={className}>{text}</span>;
+  const parts = asText(text).split(/(\*[^*\n]+\*)/g);
+  return (
+    <span className={cn("whitespace-pre-line", className)}>
+      {parts.map((part, index) =>
+        part.startsWith("*") && part.endsWith("*") && part.length > 2 ? (
+          <em key={`accent-${index}`} className="font-normal italic text-[var(--color-primary)]">
+            {part.slice(1, -1)}
+          </em>
+        ) : (
+          <span key={`text-${index}`}>{part}</span>
+        ),
+      )}
+    </span>
+  );
+}
+
+function Heading({ text, animation, className }: { text: unknown; animation?: Animation; className?: string }) {
+  if (isValidElement(text)) {
+    return <span className={className}>{text}</span>;
+  }
+  const value = asText(text);
+  if (animation?.preset === "split-words" || animation?.preset === "split-chars") {
+    return <SplitText text={value} mode={animation.preset === "split-words" ? "words" : "chars"} className={className} />;
+  }
+  return <AccentText text={value} className={className} />;
 }
 
 function Shell({ animation, preserveLcp, className, children }: { animation: Animation; preserveLcp?: boolean; className?: string; children: ReactNode }) {
@@ -131,8 +161,78 @@ export function Navbar(props: PropsOf<"Navbar">) {
         {props.cta.label ? <a href={props.cta.href}>{props.cta.label}</a> : null}
       </div>
     ),
+    overlay: (
+      <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-6 px-5 py-5 text-[#f7f4ee] md:px-10">
+        {mark("font-display text-2xl tracking-[0.14em]", "h-9 max-w-[12rem] brightness-0 invert")}
+        <nav className="hidden flex-wrap items-center gap-x-6 gap-y-2 text-[0.68rem] uppercase tracking-[0.18em] md:flex">
+          {props.links.map((link, index) => (
+            <a key={`nav-overlay-${index}`} href={link.href}>{asText(link.label)}</a>
+          ))}
+        </nav>
+        {props.cta.label ? <ThemeLink href={props.cta.href}>{props.cta.label}</ThemeLink> : null}
+      </header>
+    ),
   }[props.variant];
+  if (props.variant === "overlay") {
+    return <Shell animation={{ ...props.animation, preset: "none" }}>{body}</Shell>;
+  }
   return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout} className="!py-6">{body}</Section></Shell>;
+}
+
+function PhotoHero({
+  id,
+  image,
+  hasImage,
+  eyebrow,
+  title,
+  subtitle,
+  ctas,
+  dock,
+  dockHref,
+  tone,
+}: {
+  id: string;
+  image: PropsOf<"Hero">["image"];
+  hasImage: boolean;
+  eyebrow: unknown;
+  title: unknown;
+  subtitle: unknown;
+  ctas: ReactNode;
+  dock?: PropsOf<"Hero">["dock"];
+  dockHref?: string;
+  tone: "dark" | "soft";
+}) {
+  return (
+    <div className={cn("relative min-h-[100svh] overflow-hidden", tone === "dark" ? "bg-[#14120f] text-[#f7f4ee]" : "bg-[#1c1915] text-[#f7f4ee]")}>
+      {hasImage ? (
+        <Media image={image} blockId={id} path="image" fit="cover" kenburns className="absolute inset-0 !min-h-full" />
+      ) : null}
+      <div
+        className={cn(
+          "absolute inset-0",
+          tone === "dark"
+            ? "bg-gradient-to-t from-black/80 via-black/35 to-black/25"
+            : "bg-gradient-to-t from-black/50 via-black/15 to-transparent",
+        )}
+      />
+      <div className="relative flex min-h-[100svh] flex-col justify-end px-5 pb-8 pt-28 md:px-12 md:pb-12">
+        <div className="hero-rise max-w-4xl">
+          {eyebrow ? (
+            <p className="mb-5 flex items-center gap-4 text-xs uppercase tracking-[0.22em] text-[var(--color-primary)]">
+              <span className="h-px w-10 bg-current" />
+              {renderText(eyebrow)}
+            </p>
+          ) : null}
+          <h1 className="font-display text-[clamp(3rem,8vw,6.5rem)] leading-[0.9] tracking-[-0.03em]">
+            <AccentText text={title} />
+          </h1>
+          {subtitle ? <p className="mt-5 max-w-xl text-lg leading-relaxed text-white/85">{renderText(subtitle)}</p> : null}
+          <div className="mt-6">{ctas}</div>
+        </div>
+        <HeroDock dock={dock} href={dockHref} />
+      </div>
+    </div>
+  );
 }
 
 export function Hero(props: PropsOf<"Hero">) {
@@ -231,17 +331,36 @@ export function Hero(props: PropsOf<"Hero">) {
       </div>
     ),
     editorial: (
-      <div className="grid items-center gap-10 py-6 md:grid-cols-12 md:py-10">
-        <div className="space-y-5 md:col-span-7">
-          <p className="eyebrow text-xs uppercase tracking-[0.2em] text-[var(--color-primary)]">{props.eyebrow}</p>
-          {title}
-          <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
-          {ctas}
+      <div>
+        <div className="grid items-center gap-10 py-6 md:grid-cols-12 md:py-10">
+          <div className="space-y-5 md:col-span-7">
+            <p className="eyebrow text-xs uppercase tracking-[0.2em] text-[var(--color-primary)]">{props.eyebrow}</p>
+            {title}
+            <p className="max-w-md text-lg leading-relaxed">{props.subtitle}</p>
+            {ctas}
+          </div>
+          {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
         </div>
-        {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
+        <HeroDock dock={props.dock} href={props.dockHref} />
       </div>
     ),
-    immersive,
+    immersive:
+      hasImage && !logoMode ? (
+        <PhotoHero
+          id={id}
+          image={props.image}
+          hasImage
+          eyebrow={props.eyebrow}
+          title={props.title}
+          subtitle={props.subtitle}
+          ctas={ctas}
+          dock={props.dock}
+          dockHref={props.dockHref}
+          tone="soft"
+        />
+      ) : (
+        immersive
+      ),
     asymmetric: (
       <div className="grid gap-8 md:grid-cols-[auto_1fr]">
         <p className="text-xs uppercase tracking-[0.28em] md:[writing-mode:vertical-rl]">{props.eyebrow}</p>
@@ -255,19 +374,27 @@ export function Hero(props: PropsOf<"Hero">) {
         </div>
       </div>
     ),
-    cinematic:
-      hasImage && !logoMode ? (
-        <div className="relative grid min-h-[72svh] items-end overflow-hidden bg-[#0f1419] text-[#fafafa] md:min-h-[80svh]">
-          <Media image={props.image} blockId={id} path="image" fit="cover" className="absolute inset-0 !min-h-full opacity-70" />
-          <div className="relative max-w-3xl bg-black/55 p-6 md:p-10">{copy}</div>
-        </div>
-      ) : (
-        brandBanner
-      ),
+    cinematic: (
+      <PhotoHero
+        id={id}
+        image={props.image}
+        hasImage={hasImage && !logoMode}
+        eyebrow={props.eyebrow}
+        title={props.title}
+        subtitle={props.subtitle}
+        ctas={ctas}
+        dock={props.dock}
+        dockHref={props.dockHref}
+        tone="dark"
+      />
+    ),
     light: (
-      <div className="relative grid items-center gap-8 bg-[#f5f0e8] px-0 py-6 text-[#1c1917] md:grid-cols-12 md:gap-10 md:py-10">
-        <div className="relative max-w-3xl md:col-span-7">{copy}</div>
-        {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
+      <div>
+        <div className="relative grid items-center gap-8 bg-[#f5f0e8] px-0 py-6 text-[#1c1917] md:grid-cols-12 md:gap-10 md:py-10">
+          <div className="relative max-w-3xl md:col-span-7">{copy}</div>
+          {sideMedia("md:col-span-5", "hidden md:col-span-5 md:block", "md:col-span-5")}
+        </div>
+        <HeroDock dock={props.dock} href={props.dockHref} />
       </div>
     ),
     brand:
@@ -282,7 +409,19 @@ export function Hero(props: PropsOf<"Hero">) {
         <div className="bg-[var(--color-primary)] px-6 py-16 text-[var(--color-background)] md:px-10">{copy}</div>
       ),
   }[variant];
-  return <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp><Section anchor={props.anchor || "topo"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
+  const bleed = variant === "cinematic" || (variant === "immersive" && hasImage && !logoMode);
+  return (
+    <Shell animation={{ ...props.animation, preset: "none" }} preserveLcp>
+      <Section
+        anchor={props.anchor || "topo"}
+        visibility={props.visibility}
+        layout={bleed ? { paddingY: "none", maxWidth: "full" } : props.layout}
+        className={bleed ? "!px-0 !py-0" : undefined}
+      >
+        {body}
+      </Section>
+    </Shell>
+  );
 }
 
 export function About(props: PropsOf<"About">) {
@@ -337,6 +476,19 @@ export function About(props: PropsOf<"About">) {
         <Media image={props.image} blockId={id} path="image" fit="cover" aspect="photo" className="!min-h-0" />
       </div>
     ),
+    sticky: (
+      <div className="grid items-start gap-10 lg:grid-cols-2">
+        <div className="about-sticky">
+          <Media image={props.image} blockId={id} path="image" fit="cover" aspect="photo" className="!min-h-0" />
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p>
+          <h2 className="mt-3 font-display text-5xl leading-none">{props.title}</h2>
+          <p className="mt-6 max-w-prose text-lg leading-8">{props.body}</p>
+          {points.length ? <div className="mt-8 grid gap-6">{points}</div> : null}
+        </div>
+      </div>
+    ),
   }[props.variant];
   return <Shell animation={props.animation}><Section anchor={props.anchor || "about"} visibility={props.visibility} layout={props.layout}>{body}</Section></Shell>;
 }
@@ -386,56 +538,19 @@ export function Services(props: PropsOf<"Services">) {
 }
 
 export function Catalog(props: PropsOf<"Catalog">) {
-  const id = readId(props);
-  const cards = props.items.map((item, index) => (
-    <article key={`catalog-${index}`} className="group">
-      <Media image={item.image} blockId={id} path={`items[${index}].image`} className="min-h-64 transition-transform duration-300 group-hover:-rotate-1" />
-      <div className="mt-3 flex items-baseline justify-between gap-3"><h3 className="font-display text-2xl">{asText(item.title)}</h3><span>{asText(item.price)}</span></div>
-      <p className="mt-1 text-sm">{asText(item.description)}</p>
-    </article>
-  ));
-  const body = {
-    shelf: <div className="grid gap-8 md:grid-cols-3">{cards}</div>,
-    lookbook: (
-      <div className="grid gap-10">
-        {props.items.map((item, index) => (
-          <article key={`catalog-${index}`} className={cn("grid items-center gap-6 md:grid-cols-2", index % 2 === 1 && "md:[&>*:first-child]:order-2")}>
-            <Media image={item.image} blockId={id} path={`items[${index}].image`} className="min-h-80" />
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em]">{asText(item.price)}</p>
-              <h3 className="mt-2 font-display text-5xl">{asText(item.title)}</h3>
-              <p className="mt-3 max-w-sm">{asText(item.description)}</p>
-            </div>
-          </article>
-        ))}
-      </div>
-    ),
-    rows: (
-      <div className="divide-y divide-[var(--color-border)]">
-        {props.items.map((item, index) => (
-          <article key={`catalog-${index}`} className="grid items-center gap-4 py-4 md:grid-cols-[8rem_1fr_auto]">
-            <Media image={item.image} blockId={id} path={`items[${index}].image`} className="min-h-24" />
-            <div>
-              <h3 className="font-display text-2xl">{asText(item.title)}</h3>
-              <p className="text-sm">{asText(item.description)}</p>
-            </div>
-            <strong>{asText(item.price)}</strong>
-          </article>
-        ))}
-      </div>
-    ),
-    mosaic: (
-      <div className="columns-1 gap-4 md:columns-3">
-        {props.items.map((item, index) => (
-          <article key={`catalog-${index}`} className="mb-4 break-inside-avoid">
-            <Media image={item.image} blockId={id} path={`items[${index}].image`} className="min-h-40" />
-            <h3 className="mt-2 font-display text-2xl">{asText(item.title)}</h3>
-          </article>
-        ))}
-      </div>
-    ),
-  }[props.variant];
-  return <Shell animation={props.animation}><Section anchor={props.anchor} visibility={props.visibility} layout={props.layout}><p className="text-xs uppercase tracking-[0.18em]">{props.eyebrow}</p><h2 className="mb-8 mt-3 font-display text-5xl md:text-7xl">{props.title}</h2>{body}</Section></Shell>;
+  return (
+    <CatalogBoard
+      items={props.items}
+      variant={props.variant}
+      blockId={readId(props)}
+      eyebrow={asText(props.eyebrow)}
+      title={asText(props.title)}
+      anchor={props.anchor}
+      visibility={props.visibility}
+      layout={props.layout}
+      animation={props.animation}
+    />
+  );
 }
 
 export function Gallery(props: PropsOf<"Gallery">) {
@@ -456,7 +571,7 @@ export function Testimonials(props: PropsOf<"Testimonials">) {
       <Media image={item.image} blockId={id} path={`items[${index}].image`} className="mb-4 min-h-32" />
       <p className="text-lg leading-8">“{asText(item.quote)}”</p>
       <footer className="mt-4 text-xs uppercase tracking-[0.16em]">{asText(item.name)} · {asText(item.role)}</footer>
-      <p className="mt-3 text-xs">Placeholder: substitua por um depoimento real.</p>
+      <EditorNote>Placeholder: substitua por um depoimento real.</EditorNote>
     </blockquote>
   );
   const body = {
@@ -682,12 +797,9 @@ export function Timeline(props: PropsOf<"Timeline">) {
 export function MapBlock(props: PropsOf<"Map">) {
   const embed = toMapEmbedSrc(props.embedUrl, props.address);
   const map = embed ? (
-    <iframe title={props.title} src={embed} className="min-h-72 w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+    <iframe title={asText(props.title) || "Mapa"} src={embed} className="min-h-72 w-full border-0" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
   ) : (
-    <div className="media-placeholder grid min-h-72 place-items-center gap-2 p-6 text-center text-sm">
-      <p>Digite o endereço real no campo “Endereço” (à direita) para o mapa aparecer aqui.</p>
-      <p className="text-xs text-[var(--color-foreground)]/55">Opcional: cole o link “Incorporar mapa” do Google Maps.</p>
-    </div>
+    <MapEmpty />
   );
   const copy = (
     <div>

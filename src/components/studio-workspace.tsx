@@ -52,7 +52,18 @@ export function StudioWorkspace(props: {
 
   async function openWithoutOverwrite() {
     setBusy(true);
-    await setEditorMode(props.pageId, switchTarget);
+    try {
+      await setEditorMode(props.pageId, switchTarget);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setHint(
+        message === "Failed to fetch"
+          ? "A ligação com o estúdio caiu. Recarregue a página e tente de novo."
+          : "Não foi possível trocar de ambiente. Tente de novo.",
+      );
+      setBusy(false);
+      return;
+    }
     setMode(switchTarget);
     setSwitchOpen(false);
     setBusy(false);
@@ -93,6 +104,13 @@ export function StudioWorkspace(props: {
       }
       setSwitchOpen(false);
       router.refresh();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setHint(
+        message === "Failed to fetch"
+          ? "A ligação com o estúdio caiu. Recarregue a página e tente de novo."
+          : "Não foi possível trocar de ambiente. Tente de novo.",
+      );
     } finally {
       setBusy(false);
     }
