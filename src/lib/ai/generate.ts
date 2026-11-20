@@ -93,7 +93,8 @@ const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 7 })).digest("hex");
+  // v8: recipe + seedFromCatalog + headline do briefing vence seed na dir 0
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 8 })).digest("hex");
 }
 
 function ensureProposalDiversity(proposals: Proposal[], briefing: Briefing): Proposal[] {
@@ -113,6 +114,7 @@ function ensureProposalDiversity(proposals: Proposal[], briefing: Briefing): Pro
       next[index] = {
         ...next[index]!,
         source: "fallback",
+        templateId: resolveProposalTemplate(briefing, alt),
         direction: proposalDirectionLabel(briefing, alt),
         data,
       };
@@ -238,6 +240,7 @@ export type Proposal = {
   label: string;
   direction: string;
   source: "ai" | "fallback";
+  templateId: string;
   data: PageDocument;
 };
 
@@ -258,16 +261,17 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
   const fallback = generateDeterministic(briefing, direction);
   const label = `Proposta ${direction + 1}`;
   const directionLabel = proposalDirectionLabel(briefing, direction);
+  const templateId = resolveProposalTemplate(briefing, direction);
 
   if (state.quotaExhausted || Date.now() - state.started > state.budgetMs) {
     if (!state.warning && Date.now() - state.started > state.budgetMs) {
       state.warning = "A geração por IA passou do tempo limite. As propostas restantes usam o gerador local.";
     }
-    return { label, direction: directionLabel, source: "fallback", data: fallback };
+    return { label, direction: directionLabel, source: "fallback", templateId, data: fallback };
   }
 
   try {
-    const lockedTemplate = resolveProposalTemplate(briefing, direction);
+    const lockedTemplate = templateId;
     const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
       generateJSON(
         [
@@ -300,7 +304,7 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
     );
     document = applyMotion(document, motionPresets);
     document = enforceCompliance(pageDataSchema.parse(document), briefing.segment);
-    return { label, direction: directionLabel, source: "ai", data: document };
+    return { label, direction: directionLabel, source: "ai", templateId, data: document };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (isQuotaError(error)) {
@@ -313,7 +317,7 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
     } else if (!state.warning) {
       state.warning = "A IA falhou em pelo menos uma proposta; essas saíram do gerador local.";
     }
-    return { label, direction: directionLabel, source: "fallback", data: fallback };
+    return { label, direction: directionLabel, source: "fallback", templateId, data: fallback };
   }
 }
 
@@ -391,19 +395,37 @@ export async function generateLockedTemplate(briefing: Briefing): Promise<{
   }
 }
 
+function logGenerationTelemetry(
+  briefing: Briefing,
+  proposals: Proposal[],
+  warning?: string,
+) {
+  console.info(
+    "[generateProposals]",
+    JSON.stringify({
+      segment: briefing.segment,
+      goal: briefing.goal,
+      sources: proposals.map((item) => item.source),
+      templates: proposals.map((item) => item.templateId),
+      warning: warning || null,
+    }),
+  );
+}
+
 export async function generateProposals(briefing: Briefing) {
   const fallbacks: Proposal[] = [0, 1, 2].map((index) => ({
     label: `Proposta ${index + 1}`,
     direction: proposalDirectionLabel(briefing, index),
     source: "fallback" as const,
+    templateId: resolveProposalTemplate(briefing, index),
     data: generateDeterministic(briefing, index),
   }));
 
   if (providerOrder().length === 0) {
-    return {
-      proposals: ensureProposalDiversity(fallbacks, briefing),
-      warning: "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.",
-    };
+    const proposals = ensureProposalDiversity(fallbacks, briefing);
+    const warning = "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.";
+    logGenerationTelemetry(briefing, proposals, warning);
+    return { proposals, warning };
   }
 
   const state: GenerateState = {
@@ -423,12 +445,13 @@ export async function generateProposals(briefing: Briefing) {
     if (primary.source === "fallback" && !state.warning) {
       state.warning = "A IA demorou ou falhou; as propostas usam o gerador local (ainda editáveis).";
     }
+    logGenerationTelemetry(briefing, proposals, state.warning);
     return { proposals, warning: state.warning };
   } catch {
-    return {
-      proposals: ensureProposalDiversity(fallbacks, briefing),
-      warning: "A geração por IA passou do tempo limite. As propostas usam o gerador local.",
-    };
+    const proposals = ensureProposalDiversity(fallbacks, briefing);
+    const warning = "A geração por IA passou do tempo limite. As propostas usam o gerador local.";
+    logGenerationTelemetry(briefing, proposals, warning);
+    return { proposals, warning };
   }
 }
 

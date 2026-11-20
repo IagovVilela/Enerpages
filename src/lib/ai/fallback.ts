@@ -199,7 +199,7 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     immersive: "banner",
     brand: "light",
   };
-  const content = applyModelSeed(
+  let content = applyModelSeed(
     sequence.map((type, index) => {
       const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
       let variant: string = pick(VARIANTS[type], seed + index + dir * 3);
@@ -221,6 +221,21 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     templateId,
     name,
   );
+
+  // Headline/tagline do briefing vencem o seed do modelo na direção principal.
+  if (dir === 0 && (briefing.headline?.trim() || briefing.tagline?.trim())) {
+    content = content.map((block) => {
+      if (block.type !== "Hero") return block;
+      return {
+        ...block,
+        props: {
+          ...block.props,
+          title: briefing.headline?.trim() || block.props.title,
+          subtitle: briefing.tagline?.trim() || block.props.subtitle,
+        },
+      };
+    });
+  }
 
   const document: PageDocument = {
     root: {

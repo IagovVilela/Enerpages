@@ -1,3 +1,6 @@
+import { getSegmentCopy } from "@/lib/ai/segment-copy";
+import { TEMPLATE_SEGMENT } from "@/lib/ai/segment-roster";
+import { PAGE_TEMPLATE_META } from "@/puck/page-templates";
 import type { Block } from "@/puck/schema";
 import type { PageTemplateId } from "@/puck/page-templates-ids";
 
@@ -27,7 +30,75 @@ type ModelSeed = {
 };
 
 function fill(value: string, name: string) {
-  return value.replaceAll("{nome}", name);
+  return value.replaceAll("{nome}", name).replaceAll("{name}", name);
+}
+
+/** Seed leve para qualquer modelo do catálogo que ainda não tem ficha artesanal. */
+function seedFromCatalog(templateId: PageTemplateId): ModelSeed {
+  const meta = PAGE_TEMPLATE_META.find((item) => item.id === templateId);
+  const segment = TEMPLATE_SEGMENT[templateId] ?? "local";
+  const bank = getSegmentCopy(segment);
+  const process = bank.processRecipes[0] ?? [
+    { title: "Conversa", description: "Entender o pedido." },
+    { title: "Proposta", description: "Escopo por escrito." },
+    { title: "Entrega", description: "O combinado." },
+  ];
+  return {
+    nav: {
+      links: [
+        { label: "Sobre", href: "#about" },
+        { label: "Serviços", href: "#services" },
+        { label: "Contato", href: "#contato" },
+      ],
+      cta: { label: bank.ctaTitles[0] ?? "Falar conosco", href: "#contato" },
+    },
+    hero: {
+      eyebrow: bank.eyebrows[0] ?? meta?.vibe ?? "Apresentação",
+      title: bank.headlines[0] ?? "{nome}",
+      subtitle: meta?.tagline ?? bank.taglines[0] ?? bank.aboutBodies[0] ?? "",
+    },
+    about: {
+      eyebrow: "Sobre",
+      title: meta?.label ? `${meta.label} · {nome}` : "O jeito {nome}",
+      body: bank.aboutBodies[0] ?? meta?.tagline ?? "",
+      points: bank.differentials.slice(0, 3).map((title, index) => ({
+        title,
+        description: bank.serviceBlurbs[index] ?? bank.taglines[0] ?? "",
+      })),
+    },
+    services: {
+      eyebrow: "Serviços",
+      title: "O que oferecemos",
+      items: (bank.serviceBlurbs.length ? bank.serviceBlurbs : ["Serviço um", "Serviço dois", "Serviço três"]).map(
+        (description, index) => ({
+          title: `Oferta ${index + 1}`,
+          description,
+        }),
+      ),
+    },
+    process: {
+      title: "Como acontece",
+      items: process.map((step) => ({ title: step.title, description: step.description })),
+    },
+    contact: {
+      title: "Contato",
+      subtitle: bank.taglines[1] ?? bank.taglines[0] ?? meta?.tagline ?? "",
+    },
+    cta: {
+      eyebrow: "{nome}",
+      title: bank.ctaTitles[0] ?? "Vamos conversar",
+      subtitle: bank.differentials.slice(0, 2).join(" · ") || meta?.tagline || "",
+    },
+    booking: {
+      title: "Agenda",
+      subtitle: "Abra o link de agendamento que você já usa.",
+      label: bank.ctaTitles[1] ?? bank.ctaTitles[0] ?? "Agendar",
+    },
+    gallery: { title: "Referências" },
+    team: { title: "Pessoas" },
+    map: { title: "Onde estamos" },
+    footer: { note: meta?.tagline ?? bank.taglines[0] ?? "" },
+  };
 }
 
 const SEEDS: Partial<Record<PageTemplateId, ModelSeed>> = {
@@ -452,8 +523,8 @@ const SEEDS: Partial<Record<PageTemplateId, ModelSeed>> = {
 };
 
 export function applyModelSeed(content: Block[], templateId: string, clientName: string): Block[] {
-  const seed = SEEDS[templateId as PageTemplateId];
-  if (!seed) return content;
+  const id = templateId as PageTemplateId;
+  const seed = SEEDS[id] ?? seedFromCatalog(id);
   const name = clientName.trim() || "Sua marca";
   return content.map((block) => {
     if (block.type === "Navbar" && seed.nav) {

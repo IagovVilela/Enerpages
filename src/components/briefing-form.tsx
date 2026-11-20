@@ -10,7 +10,13 @@ import { segmentLabel } from "@/lib/segment-labels";
 import { normalizeSlug } from "@/lib/slug";
 import { SEGMENTS, type Briefing, type PageDocument } from "@/puck/schema";
 
-type Proposal = { label: string; direction: string; source: "ai" | "fallback"; data: PageDocument };
+type Proposal = {
+  label: string;
+  direction: string;
+  source: "ai" | "fallback";
+  templateId?: string;
+  data: PageDocument;
+};
 
 export function BriefingForm({
   initial,
@@ -144,8 +150,8 @@ export function BriefingForm({
   return (
     <div className="grid gap-8">
       <p className="text-sm text-neutral-600">
-        Gere <strong>3 layouts do segmento</strong> (trio de modelos), visualize e depois edite no Puck.
-        O briefing muda a anatomia (mapa, WhatsApp, agenda, catálogo) — não só o texto. Sem chave de IA, as propostas locais ainda funcionam.
+        Caminho feliz: <strong>nome + segmento + serviços + objetivo</strong> → 3 esqueletos do trio.
+        Modelo = anatomia; IA (se houver chave) só afina texto.
       </p>
       <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2" aria-busy={locked}>
         <input
@@ -194,46 +200,74 @@ export function BriefingForm({
         </select>
         <textarea
           className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
-          name="audience"
-          placeholder="Público"
-          defaultValue={initial?.audience ?? ""}
-          disabled={locked}
-        />
-        <textarea
-          className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
-          name="tone"
-          placeholder="Tom de voz"
-          defaultValue={initial?.tone ?? ""}
-          disabled={locked}
-        />
-        <textarea
-          className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
-          name="differentials"
-          placeholder="Diferenciais"
-          defaultValue={initial?.differentials ?? ""}
-          disabled={locked}
-        />
-        <textarea
-          className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
           name="services"
           placeholder="Serviços, separados por vírgula"
           defaultValue={initial?.services ?? ""}
           disabled={locked}
         />
-        <input
-          className="border bg-white px-3 py-2 disabled:opacity-60"
-          name="colors"
-          placeholder="Cor, se houver (#8f3d2b)"
-          defaultValue={initial?.colors ?? ""}
-          disabled={locked}
-        />
-        <input
-          className="border bg-white px-3 py-2 disabled:opacity-60"
-          name="references"
-          placeholder="Referências"
-          defaultValue={initial?.references ?? ""}
-          disabled={locked}
-        />
+
+        {/* Campos do intake que alteram a receita — precisam ir no POST. */}
+        <input type="hidden" name="templateId" value={initial?.templateId ?? ""} />
+        <input type="hidden" name="headline" value={initial?.headline ?? ""} />
+        <input type="hidden" name="tagline" value={initial?.tagline ?? ""} />
+        <input type="hidden" name="backgroundColor" value={initial?.backgroundColor ?? ""} />
+        {initial?.personality ? <input type="hidden" name="personality" value={initial.personality} /> : null}
+
+        <details className="md:col-span-2 border border-[var(--studio-line)] bg-white px-3 py-2">
+          <summary className="cursor-pointer text-sm text-neutral-700">Mais detalhes (opcional)</summary>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <textarea
+              className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
+              name="audience"
+              placeholder="Público"
+              defaultValue={initial?.audience ?? ""}
+              disabled={locked}
+            />
+            <textarea
+              className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
+              name="tone"
+              placeholder="Tom de voz"
+              defaultValue={initial?.tone ?? ""}
+              disabled={locked}
+            />
+            <textarea
+              className="border bg-white px-3 py-2 md:col-span-2 disabled:opacity-60"
+              name="differentials"
+              placeholder="Diferenciais"
+              defaultValue={initial?.differentials ?? ""}
+              disabled={locked}
+            />
+            <input
+              className="border bg-white px-3 py-2 disabled:opacity-60"
+              name="colors"
+              placeholder="Cor, se houver (#8f3d2b)"
+              defaultValue={initial?.colors ?? ""}
+              disabled={locked}
+            />
+            <input
+              className="border bg-white px-3 py-2 disabled:opacity-60"
+              name="references"
+              placeholder="Referências"
+              defaultValue={initial?.references ?? ""}
+              disabled={locked}
+            />
+            <input
+              className="border bg-white px-3 py-2 disabled:opacity-60"
+              name="address"
+              placeholder="Endereço (para mapa)"
+              defaultValue={initial?.address ?? ""}
+              disabled={locked}
+            />
+            <input
+              className="border bg-white px-3 py-2 disabled:opacity-60"
+              name="whatsapp"
+              placeholder="WhatsApp"
+              defaultValue={initial?.whatsapp ?? ""}
+              disabled={locked}
+            />
+          </div>
+        </details>
+
         <button
           className="bg-[var(--studio-ink)] px-4 py-3 text-sm text-[var(--studio-bg)] disabled:cursor-not-allowed disabled:opacity-50 md:col-span-2"
           disabled={locked}
@@ -253,30 +287,47 @@ export function BriefingForm({
       {error ? <p className="text-sm text-[var(--studio-accent)]">{error}</p> : null}
       {warning ? <p className="text-sm">{warning}</p> : null}
       <div className="grid gap-4 md:grid-cols-3">
-        {proposals.map((proposal) => (
-          <article key={proposal.label} className="grid gap-3 border border-[var(--studio-line)] bg-white p-4">
-            <p className="text-xs uppercase tracking-[0.16em]">{proposal.source === "ai" ? "IA" : "Arquétipo"}</p>
-            <h2 className="text-2xl">{proposal.label}</h2>
-            <p className="text-sm">{proposal.direction}</p>
-            <p className="text-sm">
-              {proposal.data.root.props.theme.personality} · {proposal.data.content.length} blocos
-            </p>
-            <div className="flex h-16" style={{ background: proposal.data.root.props.theme.colors.background }}>
-              <span className="m-3 h-3 w-10" style={{ background: proposal.data.root.props.theme.colors.primary }} />
-            </div>
-            <button className="border px-3 py-2 text-sm disabled:opacity-50" type="button" disabled={locked} onClick={() => setPreview(proposal)}>
-              Visualizar
-            </button>
-            <button
-              className="bg-[var(--studio-ink)] px-3 py-2 text-sm text-[var(--studio-bg)] disabled:opacity-50"
-              type="button"
-              disabled={locked}
-              onClick={() => openInEditor(proposal)}
-            >
-              {opening ? "Abrindo…" : "Usar e editar no Puck"}
-            </button>
-          </article>
-        ))}
+        {proposals.map((proposal) => {
+          const fonts = proposal.data.root.props.theme.fonts;
+          const colors = proposal.data.root.props.theme.colors;
+          return (
+            <article key={proposal.label} className="grid gap-3 border border-[var(--studio-line)] bg-white p-4">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em]">
+                <span className="border px-2 py-0.5">{proposal.source === "ai" ? "IA" : "Local"}</span>
+                {proposal.templateId ? (
+                  <span className="border px-2 py-0.5">{proposal.templateId}</span>
+                ) : null}
+              </div>
+              <h2 className="text-2xl">{proposal.label}</h2>
+              <p className="text-sm">{proposal.direction}</p>
+              <p className="text-sm text-neutral-600">
+                {proposal.data.root.props.theme.personality} · {fonts.display}/{fonts.body} ·{" "}
+                {proposal.data.content.length} blocos
+              </p>
+              <div className="flex h-16 items-end gap-1 p-3" style={{ background: colors.background }}>
+                <span className="h-3 w-10" style={{ background: colors.primary }} />
+                <span className="h-3 w-6" style={{ background: colors.accent }} />
+                <span className="h-3 w-6 border" style={{ background: colors.muted, borderColor: colors.border }} />
+              </div>
+              <button
+                className="border px-3 py-2 text-sm disabled:opacity-50"
+                type="button"
+                disabled={locked}
+                onClick={() => setPreview(proposal)}
+              >
+                Visualizar
+              </button>
+              <button
+                className="bg-[var(--studio-ink)] px-3 py-2 text-sm text-[var(--studio-bg)] disabled:opacity-50"
+                type="button"
+                disabled={locked}
+                onClick={() => openInEditor(proposal)}
+              >
+                {opening ? "Abrindo…" : "Usar e editar no Puck"}
+              </button>
+            </article>
+          );
+        })}
       </div>
 
       <ProposalPreviewModal
