@@ -144,8 +144,8 @@ export function BriefingForm({
   return (
     <div className="grid gap-8">
       <p className="text-sm text-neutral-600">
-        Gere propostas, <strong>visualize</strong> como ficou e depois <strong>edite no Puck</strong> para ajustar qualquer ponto.
-        Sem chave de IA, as propostas locais ainda funcionam.
+        Gere <strong>3 layouts do segmento</strong> (trio de modelos), visualize e depois edite no Puck.
+        O briefing muda a anatomia (mapa, WhatsApp, agenda, catálogo) — não só o texto. Sem chave de IA, as propostas locais ainda funcionam.
       </p>
       <form onSubmit={onSubmit} className="grid gap-3 md:grid-cols-2" aria-busy={locked}>
         <input
