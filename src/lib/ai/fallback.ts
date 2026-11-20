@@ -9,6 +9,7 @@ import {
   resolveReferences,
 } from "@/lib/ai/segment-copy";
 import { applyModelSeed } from "@/lib/ai/model-seeds";
+import { resolveRecipe } from "@/lib/ai/resolve-recipe";
 import { getTemplateStyle, resolveProposalTemplate, type TemplateStyle } from "@/lib/ai/template-styles";
 import { mapsEmbedFromAddress } from "@/lib/map-embed";
 import { ensureThemeContrast } from "@/lib/theme-contrast";
@@ -30,6 +31,25 @@ import {
 
 function uid(prefix: string, index: number) {
   return `${prefix}-${index + 1}`;
+}
+
+function resolveHeroDock(
+  briefing: Briefing,
+  fallback: TemplateStyle["heroDock"],
+): TemplateStyle["heroDock"] {
+  if (briefing.goal !== "agendar") return fallback ?? "none";
+  if (briefing.segment === "restaurante") return "reserve";
+  if (briefing.segment === "hotelaria") return "stay";
+  if (
+    briefing.segment === "clinica" ||
+    briefing.segment === "psicologia" ||
+    briefing.segment === "odontologia" ||
+    briefing.segment === "estetica" ||
+    briefing.segment === "barbearia"
+  ) {
+    return "booking";
+  }
+  return fallback ?? "none";
 }
 
 function listFrom(value: string, fallback: string[]) {
@@ -84,7 +104,11 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
   );
   const dir = ((direction % 3) + 3) % 3;
   const templateId = resolveProposalTemplate(briefing, dir);
-  const template = getTemplateStyle(templateId);
+  const baseTemplate = getTemplateStyle(templateId);
+  const template: TemplateStyle = {
+    ...baseTemplate,
+    heroDock: resolveHeroDock(briefing, baseTemplate.heroDock),
+  };
 
   const personalityFromBriefing =
     briefing.personality && (PERSONALITIES as readonly string[]).includes(briefing.personality)
@@ -140,36 +164,8 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
       ? `${name} — tom ${briefing.tone.trim()}. ${tagline}`
       : aboutBody;
 
-  /** Blocos que ficam feios sem foto — substituímos por conteúdo tipográfico, salvo quando o modelo pede a seção. */
-  const mediaHeavy = new Set<BlockType>(["Gallery", "Video", "BeforeAfter"]);
-  const explicit = new Set(template.blocks ?? []);
-  const textFillers: BlockType[] = ["About", "Process", "Faq", "Services"];
-  const rawRecipe =
-    template.blocks?.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp") ??
-    archetype.recipes[dir] ??
-    archetype.recipes[0]!;
-  const recipeBody = rawRecipe.map((type, index) => {
-    if (!mediaHeavy.has(type) || explicit.has(type)) return type;
-    return textFillers[(seed + index + dir) % textFillers.length]!;
-  });
-  const withWhatsApp =
-    Boolean(briefing.whatsapp?.trim()) ||
-    Boolean(template.blocks?.includes("WhatsApp")) ||
-    (!template.blocks && archetype.blocks.includes("WhatsApp"));
-  const wantsMap = Boolean(briefing.address?.trim()) || recipeBody.includes("Map");
-  const sequence: BlockType[] = [
-    "Navbar",
-    ...recipeBody.filter((t) => t !== "Navbar" && t !== "Footer" && t !== "WhatsApp"),
-    ...(wantsMap ? (["Map"] as const) : []),
-    ...(!template.blocks &&
-    !recipeBody.includes("Cta") &&
-    !recipeBody.includes("Contact") &&
-    !recipeBody.includes("Booking")
-      ? (["Cta"] as const)
-      : []),
-    "Footer",
-    ...(withWhatsApp ? (["WhatsApp"] as const) : []),
-  ].filter((type, index, arr) => arr.indexOf(type) === index) as BlockType[];
+  const sequence = resolveRecipe({ briefing, template, direction: dir, seed });
+  const withWhatsApp = sequence.includes("WhatsApp");
 
   const copy: Copy = {
     name,

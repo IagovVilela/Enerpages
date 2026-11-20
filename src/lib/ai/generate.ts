@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ARCHETYPES, directionLabelFor } from "@/lib/ai/archetypes";
 import { isPageTemplateId, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { pageDiversitySignature } from "@/lib/ai/resolve-recipe";
 import { buildPageTemplate, PAGE_TEMPLATE_META } from "@/puck/page-templates";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
@@ -92,7 +93,34 @@ const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 6 })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 7 })).digest("hex");
+}
+
+function ensureProposalDiversity(proposals: Proposal[], briefing: Briefing): Proposal[] {
+  const next = [...proposals];
+  const seen = new Set<string>();
+  for (let index = 0; index < next.length; index += 1) {
+    let signature = pageDiversitySignature(next[index]!.data);
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      continue;
+    }
+    // Colisão rara (ex.: IA caiu no mesmo esqueleto): regenera direção local distinta.
+    for (const alt of [0, 1, 2, 3, 4, 5]) {
+      const data = generateDeterministic(briefing, alt);
+      signature = pageDiversitySignature(data);
+      if (seen.has(signature)) continue;
+      next[index] = {
+        ...next[index]!,
+        source: "fallback",
+        direction: proposalDirectionLabel(briefing, alt),
+        data,
+      };
+      seen.add(signature);
+      break;
+    }
+  }
+  return next;
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -373,7 +401,7 @@ export async function generateProposals(briefing: Briefing) {
 
   if (providerOrder().length === 0) {
     return {
-      proposals: fallbacks,
+      proposals: ensureProposalDiversity(fallbacks, briefing),
       warning: "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.",
     };
   }
@@ -388,7 +416,7 @@ export async function generateProposals(briefing: Briefing) {
   // 1 proposta via IA (rápida) + 2 arquétipos locais — evita 6 chamadas e timeout 499.
   try {
     const primary = await withTimeout(generateOneProposal(briefing, 0, state), 20_000);
-    const proposals = [primary, fallbacks[1], fallbacks[2]];
+    const proposals = ensureProposalDiversity([primary, fallbacks[1]!, fallbacks[2]!], briefing);
     if (state.warning && primary.source === "ai" && /cota gratuita acabou/i.test(state.warning)) {
       state.warning = "Limite da cota gratuita atingido; parte das propostas usou o gerador local.";
     }
@@ -398,7 +426,7 @@ export async function generateProposals(briefing: Briefing) {
     return { proposals, warning: state.warning };
   } catch {
     return {
-      proposals: fallbacks,
+      proposals: ensureProposalDiversity(fallbacks, briefing),
       warning: "A geração por IA passou do tempo limite. As propostas usam o gerador local.",
     };
   }
