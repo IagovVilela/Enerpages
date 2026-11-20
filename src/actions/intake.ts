@@ -7,6 +7,7 @@ import { applyIntakeToDocument, intakeSchema } from "@/lib/intake/schema";
 import { createIntakeToken, intakeExpiresAt, intakePublicUrl } from "@/lib/intake/token";
 import { normalizeSlug } from "@/lib/slug";
 import { SEGMENTS } from "@/puck/schema";
+import { defaultTemplateForSegment } from "@/lib/intake/schema";
 import { buildPageTemplate, isPageTemplateId } from "@/puck/page-templates";
 import { createPage } from "@/actions/studio";
 
@@ -65,7 +66,9 @@ export async function createPageFromIntake(inviteId: string, slugInput?: string)
   if (!parsed.success) return { ok: false as const, error: "Payload do cliente inválido." };
   const payload = parsed.data;
   const slug = normalizeSlug(slugInput || payload.clientName);
-  const templateId = isPageTemplateId(payload.templateId) ? payload.templateId : "classic";
+  const templateId = isPageTemplateId(payload.templateId)
+    ? payload.templateId
+    : defaultTemplateForSegment(payload.segment);
   const base = buildPageTemplate(templateId, payload.clientName, payload.segment);
   const data = applyIntakeToDocument(base, payload);
 

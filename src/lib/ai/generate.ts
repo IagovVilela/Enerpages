@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { ARCHETYPES, directionLabelFor } from "@/lib/ai/archetypes";
 import { isPageTemplateId, resolveProposalTemplate } from "@/lib/ai/template-styles";
 import { buildPageTemplate, PAGE_TEMPLATE_META } from "@/puck/page-templates";
-import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
 import { generateJSON, isQuotaError, providerOrder } from "@/lib/ai/provider";
@@ -93,7 +92,7 @@ const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 5 })).digest("hex");
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 6 })).digest("hex");
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -120,15 +119,18 @@ async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<
   return { ...fresh, cached: false };
 }
 
-function applyStructure(structure: z.infer<typeof structureSchema>, briefing: Briefing) {
-  const templateId = isPageTemplateId(structure.templateId)
-    ? structure.templateId
-    : resolveProposalTemplate(briefing, 0);
+function applyStructure(
+  structure: z.infer<typeof structureSchema>,
+  briefing: Briefing,
+  direction: number,
+) {
+  // Anatomia vem do trio do segmento (ou modelo preferido na dir 0) — a IA não troca o esqueleto.
+  const templateId = resolveProposalTemplate(briefing, direction);
   const archetype = ARCHETYPES[briefing.segment] ?? ARCHETYPES.local;
   const palette = archetype.palettes[structure.paletteIndex % archetype.palettes.length];
   const next = generateDeterministic(
     { ...briefing, templateId, personality: structure.personality },
-    0,
+    direction,
   );
   next.root.props.theme = {
     ...next.root.props.theme,
@@ -237,21 +239,26 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
   }
 
   try {
+    const lockedTemplate = resolveProposalTemplate(briefing, direction);
     const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
       generateJSON(
         [
           `Briefing: ${JSON.stringify(briefing)}.`,
           `Direção criativa obrigatória: ${directionLabel}.`,
-          "Responda em três camadas, sem inventar blocos nem HTML.",
-          `Anatomia: templateId exatamente um de [${PAGE_TEMPLATE_IDS.join(", ")}].`,
-          `Vibe: personality um de [${PERSONALITIES.join(", ")}]; paletteIndex inteiro 0-8; entrance "none", "curtain" ou "wipe"; heroVariant um de [${VARIANTS.Hero.join(", ")}].`,
-          "O modelo escolhido já define a ordem das seções. Não devolva lista de blocks.",
+          "Responda em JSON, sem inventar blocos nem HTML.",
+          `Anatomia fixa: templateId deve ser exatamente "${lockedTemplate}" (já escolhido para esta proposta).`,
+          `Vibe: personality um de [${PERSONALITIES.join(", ")}]; paletteIndex inteiro 0-8; entrance "none", "curtain" ou "wipe"; heroVariant um de [${VARIANTS.Hero.join(", ")}] — prefira variantes tipográficas (banner, split, editorial, light, asymmetric) se não houver foto.`,
+          "O modelo já define a ordem das seções. Não devolva lista de blocks.",
         ].join(" "),
         structureInputSchema,
         SYSTEM,
       ),
     );
-    let document = applyStructure(structure.data, briefing);
+    let document = applyStructure(
+      { ...structure.data, templateId: lockedTemplate },
+      briefing,
+      direction,
+    );
     const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
       generateJSON(
         `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,

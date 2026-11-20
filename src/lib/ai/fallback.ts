@@ -196,8 +196,13 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
     address: briefing.address?.trim() || "",
   };
 
-  /** Sem fotos reais: prioriza heróis tipográficos / banner de logo (nada de immersive/cinematic vazios). */
+  /** Sem fotos reais: heróis photo-first viram tipográficos, com mapeamento estável por estilo. */
   const safeHeroVariants = ["banner", "split", "editorial", "light", "asymmetric"] as const;
+  const photoHeroFallback: Record<string, (typeof safeHeroVariants)[number]> = {
+    cinematic: "asymmetric",
+    immersive: "banner",
+    brand: "light",
+  };
   const content = applyModelSeed(
     sequence.map((type, index) => {
       const base = chrome(type, seed + index * 5 + dir * 11, motion, index);
@@ -209,6 +214,9 @@ export function generateDeterministic(briefing: Briefing, direction = 0): PageDo
           preferred && allowed.includes(preferred)
             ? preferred
             : safeHeroVariants[dir % safeHeroVariants.length]!;
+        if (variant in photoHeroFallback) {
+          variant = photoHeroFallback[variant]!;
+        }
       }
       const styled = template.blockVariants?.[type];
       if (styled && (VARIANTS[type] as readonly string[]).includes(styled)) variant = styled;

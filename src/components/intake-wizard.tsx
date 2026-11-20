@@ -10,19 +10,41 @@ import {
 } from "@/puck/schema";
 import { PAGE_TEMPLATE_META } from "@/puck/page-templates";
 import { FONT_BY_PERSONALITY } from "@/lib/ai/archetypes";
+import { SEGMENT_TRIOS } from "@/lib/ai/segment-roster";
 import { canvasBgArtStyle } from "@/lib/canvas/bg-art";
 import { MaskedPhoneInput } from "@/components/masked-phone-input";
 import { formatInstagramHandle } from "@/lib/br-input-masks";
-import { emptyIntake, type IntakePayload } from "@/lib/intake/schema";
+import {
+  defaultTemplateForSegment,
+  emptyIntake,
+  intakeVisualFromTemplate,
+  isFactoryLook,
+  type IntakePayload,
+} from "@/lib/intake/schema";
+import { isPageTemplateId } from "@/lib/ai/template-styles";
 import { cn } from "@/lib/cn";
 import { fontAssets } from "@/puck/fonts";
+import { segmentLabel } from "@/lib/segment-labels";
+
+function lookMatchesTemplate(data: IntakePayload, templateId: string) {
+  if (!isPageTemplateId(templateId)) return false;
+  const visual = intakeVisualFromTemplate(templateId);
+  return (
+    data.personality === visual.personality &&
+    data.fontDisplay === visual.fontDisplay &&
+    data.fontBody === visual.fontBody &&
+    data.bgArt === visual.bgArt &&
+    data.primaryColor.toLowerCase() === visual.primaryColor.toLowerCase() &&
+    data.backgroundColor.toLowerCase() === visual.backgroundColor.toLowerCase()
+  );
+}
 
 const STEPS = [
   { id: 1, title: "Negócio", blurb: "Quem você é e o que oferece." },
   { id: 2, title: "Contato", blurb: "Como o visitante fala com você." },
-  { id: 3, title: "Visual", blurb: "Cores, tipografia e clima da marca." },
+  { id: 3, title: "Visual", blurb: "Opcional: personalize cores e tipografia (o modelo já traz um visual)." },
   { id: 4, title: "Textos", blurb: "Tom de voz e mensagens principais." },
-  { id: 5, title: "Modelo", blurb: "Escolha um ponto de partida de layout." },
+  { id: 5, title: "Modelo", blurb: "Três layouts do seu segmento — escolha um ponto de partida." },
 ] as const;
 
 type Props = {
@@ -77,6 +99,28 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
           fontDisplay: fonts.display,
           fontBody: fonts.body,
         };
+      }
+      if (key === "segment") {
+        const segment = value as IntakePayload["segment"];
+        const trio = SEGMENT_TRIOS[segment] ?? SEGMENT_TRIOS.local;
+        const keepTemplate = trio.includes(prev.templateId as (typeof trio)[number]);
+        const templateId = keepTemplate ? prev.templateId : defaultTemplateForSegment(segment);
+        if (!isPageTemplateId(templateId)) {
+          return { ...prev, segment };
+        }
+        const shouldSyncLook =
+          !keepTemplate && (isFactoryLook(prev) || lookMatchesTemplate(prev, prev.templateId));
+        return shouldSyncLook
+          ? { ...prev, segment, templateId, ...intakeVisualFromTemplate(templateId) }
+          : { ...prev, segment, templateId };
+      }
+      if (key === "templateId") {
+        const templateId = value as IntakePayload["templateId"];
+        if (!isPageTemplateId(templateId)) return { ...prev, templateId };
+        const shouldSyncLook = isFactoryLook(prev) || lookMatchesTemplate(prev, prev.templateId);
+        return shouldSyncLook
+          ? { ...prev, templateId, ...intakeVisualFromTemplate(templateId) }
+          : { ...prev, templateId };
       }
       return { ...prev, [key]: value };
     });
@@ -252,6 +296,9 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
 
         {step === 3 ? (
           <>
+            <p className="text-sm text-neutral-600">
+              Já partimos do visual do modelo escolhido. Só mude aqui se quiser personalizar a marca.
+            </p>
             <div className="grid gap-1.5">
               <Field label="Personalidade">
                 <select className="border px-3 py-2" value={data.personality} onChange={(e) => patch("personality", e.target.value as IntakePayload["personality"])}>
@@ -363,26 +410,69 @@ export function IntakeWizard({ token, initial, locked, lockMessage }: Props) {
         ) : null}
 
         {step === 5 ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {PAGE_TEMPLATE_META.map((template) => {
-              const active = data.templateId === template.id;
-              return (
-                <button
-                  key={template.id}
-                  type="button"
-                  className={cn(
-                    "grid gap-2 border p-4 text-left transition",
-                    active ? "border-[var(--studio-ink)] bg-[var(--studio-ink)] text-[var(--studio-bg)]" : "border-[var(--studio-line)] bg-white hover:border-[var(--studio-ink)]",
-                  )}
-                  onClick={() => patch("templateId", template.id)}
-                >
-                  <span className="h-2 w-10" style={{ background: active ? "currentColor" : template.swatch }} />
-                  <strong className="text-lg">{template.label}</strong>
-                  <span className={cn("text-sm", active ? "opacity-90" : "text-neutral-600")}>{template.tagline}</span>
-                  <span className="text-[11px] uppercase tracking-[0.12em] opacity-70">{template.layoutHint}</span>
-                </button>
-              );
-            })}
+          <div className="grid gap-6">
+            <p className="text-sm text-neutral-600">
+              Três modelos do segmento <strong>{segmentLabel(data.segment)}</strong> vêm primeiro. O visual do passo 3
+              acompanha o modelo escolhido (você pode personalizar antes).
+            </p>
+            {(
+              [
+                {
+                  title: `Recomendados · ${segmentLabel(data.segment)}`,
+                  items: PAGE_TEMPLATE_META.filter((template) =>
+                    (SEGMENT_TRIOS[data.segment] ?? SEGMENT_TRIOS.local).includes(
+                      template.id as (typeof SEGMENT_TRIOS.local)[number],
+                    ),
+                  ),
+                },
+                {
+                  title: "Outros modelos",
+                  items: PAGE_TEMPLATE_META.filter(
+                    (template) =>
+                      template.id !== "blank" &&
+                      !(SEGMENT_TRIOS[data.segment] ?? SEGMENT_TRIOS.local).includes(
+                        template.id as (typeof SEGMENT_TRIOS.local)[number],
+                      ),
+                  ),
+                },
+              ] as const
+            ).map((group) =>
+              group.items.length ? (
+                <section key={group.title} className="grid gap-3">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500">{group.title}</h2>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {group.items.map((template) => {
+                      const active = data.templateId === template.id;
+                      return (
+                        <button
+                          key={template.id}
+                          type="button"
+                          className={cn(
+                            "grid gap-2 border p-4 text-left transition",
+                            active
+                              ? "border-[var(--studio-ink)] bg-[var(--studio-ink)] text-[var(--studio-bg)]"
+                              : "border-[var(--studio-line)] bg-white hover:border-[var(--studio-ink)]",
+                          )}
+                          onClick={() => patch("templateId", template.id)}
+                        >
+                          <span
+                            className="h-2 w-10"
+                            style={{ background: active ? "currentColor" : template.swatch }}
+                          />
+                          <strong className="text-lg">{template.label}</strong>
+                          <span className={cn("text-sm", active ? "opacity-90" : "text-neutral-600")}>
+                            {template.tagline}
+                          </span>
+                          <span className="text-[11px] uppercase tracking-[0.12em] opacity-70">
+                            {template.layoutHint}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+              ) : null,
+            )}
           </div>
         ) : null}
       </div>
