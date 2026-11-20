@@ -74,27 +74,83 @@ function coerceStructure(raw: unknown) {
 const structureInputSchema = z.preprocess(coerceStructure, structureSchema) as z.ZodType<z.infer<typeof structureSchema>>;
 
 
-const textSchema = z.object({
-  seoTitle: z.string(),
-  seoDescription: z.string(),
-  blocks: z.array(
-    z.object({
-      title: z.string().optional(),
-      subtitle: z.string().optional(),
-      eyebrow: z.string().optional(),
-      body: z.string().optional(),
-      note: z.string().optional(),
-      items: z.array(z.record(z.string())).optional(),
-    }),
-  ),
-});
+function optionalString(value: unknown) {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+function coerceTextItem(item: unknown): Record<string, string> {
+  // Modelos gratuitos às vezes devolvem items como string pura.
+  if (typeof item === "string") return { title: item };
+  if (!item || typeof item !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+    const text = optionalString(value);
+    if (text !== undefined) out[key] = text;
+  }
+  return out;
+}
+
+function coerceTextBlock(block: unknown) {
+  if (!block || typeof block !== "object") return {};
+  const input = block as Record<string, unknown>;
+  return {
+    title: optionalString(input.title),
+    subtitle: optionalString(input.subtitle),
+    eyebrow: optionalString(input.eyebrow),
+    body: optionalString(input.body),
+    note: optionalString(input.note),
+    items: Array.isArray(input.items) ? input.items.map(coerceTextItem) : undefined,
+  };
+}
+
+function coerceTextPayload(raw: unknown) {
+  if (!raw || typeof raw !== "object") return raw;
+  const input = raw as Record<string, unknown>;
+  return {
+    seoTitle: optionalString(input.seoTitle) ?? "",
+    seoDescription: optionalString(input.seoDescription) ?? "",
+    blocks: Array.isArray(input.blocks) ? input.blocks.map(coerceTextBlock) : [],
+  };
+}
+
+const textSchema = z.preprocess(
+  coerceTextPayload,
+  z.object({
+    seoTitle: z.string(),
+    seoDescription: z.string(),
+    blocks: z.array(
+      z.object({
+        title: z.string().optional(),
+        subtitle: z.string().optional(),
+        eyebrow: z.string().optional(),
+        body: z.string().optional(),
+        note: z.string().optional(),
+        items: z.array(z.record(z.string())).optional(),
+      }),
+    ),
+  }),
+) as z.ZodType<{
+  seoTitle: string;
+  seoDescription: string;
+  blocks: Array<{
+    title?: string;
+    subtitle?: string;
+    eyebrow?: string;
+    body?: string;
+    note?: string;
+    items?: Array<Record<string, string>>;
+  }>;
+}>;
 
 const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  // v8: recipe + seedFromCatalog + headline do briefing vence seed na dir 0
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 8 })).digest("hex");
+  // v9: coerce de texts (items string → objeto) para Gemini/Groq não caírem em 422
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 9 })).digest("hex");
 }
 
 function ensureProposalDiversity(proposals: Proposal[], briefing: Briefing): Proposal[] {
@@ -293,7 +349,7 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
     );
     const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
       generateJSON(
-        `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
+        `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note e items como objetos {title, description} (nunca string solta).`,
         textSchema,
         SYSTEM,
       ),

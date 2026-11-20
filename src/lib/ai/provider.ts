@@ -43,7 +43,7 @@ async function readError(response: Response) {
   throw new AiError(body.slice(0, 300) || response.statusText, response.status);
 }
 
-const AI_FETCH_MS = 10_000;
+const AI_FETCH_MS = 18_000;
 
 function aiFetch(input: string, init?: RequestInit) {
   return fetch(input, { ...init, signal: AbortSignal.timeout(AI_FETCH_MS) });
@@ -118,7 +118,8 @@ function groq(): AIProvider {
           body: JSON.stringify({
             model: process.env.GROQ_MODEL || "qwen/qwen3.8-27b",
             temperature: 0.7,
-            max_tokens: 700,
+            // Free/on_demand OTPM é baixo; 400 evita 429 em cascata após falha do Gemini.
+            max_tokens: 400,
             response_format: { type: "json_object" },
             messages: [
               { role: "system", content: system || "Responda apenas JSON." },
