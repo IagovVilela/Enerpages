@@ -119,10 +119,11 @@ describe("modelos de página", () => {
     expect(vertice.root.props.theme.fonts.display).toBe("Bodoni Moda");
     const verticeHero = vertice.content.find((block) => block.type === "Hero");
     const verticeNav = vertice.content.find((block) => block.type === "Navbar");
-    expect(verticeHero?.type === "Hero" && verticeHero.props.variant).toBe("cinematic");
+    // Sem foto real, cinematic vira tipográfico estável (asymmetric) — evita hero vazio.
+    expect(verticeHero?.type === "Hero" && verticeHero.props.variant).toBe("asymmetric");
     expect(verticeHero?.type === "Hero" && verticeHero.props.dock).toBe("search");
     expect(verticeHero?.type === "Hero" && verticeHero.props.title).toMatch(/\*/);
-    expect(verticeHero?.type === "Hero" && verticeHero.props.imageMode).toBe("photo");
+    expect(verticeHero?.type === "Hero" && verticeHero.props.imageMode).toBe("logo");
     expect(verticeNav?.type === "Navbar" && verticeNav.props.variant).toBe("overlay");
     const verticeCatalog = vertice.content.find((block) => block.type === "Catalog");
     expect(verticeCatalog?.type === "Catalog" && verticeCatalog.props.items.some((item) => item.group === "Comprar")).toBe(true);

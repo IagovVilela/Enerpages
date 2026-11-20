@@ -3,8 +3,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { ARCHETYPES, directionLabelFor } from "@/lib/ai/archetypes";
 import { isPageTemplateId, resolveProposalTemplate } from "@/lib/ai/template-styles";
+import { pageDiversitySignature } from "@/lib/ai/resolve-recipe";
 import { buildPageTemplate, PAGE_TEMPLATE_META } from "@/puck/page-templates";
-import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
 import { enforceCompliance } from "@/lib/ai/compliance";
 import { generateDeterministic } from "@/lib/ai/fallback";
 import { generateJSON, isQuotaError, providerOrder } from "@/lib/ai/provider";
@@ -74,26 +74,111 @@ function coerceStructure(raw: unknown) {
 const structureInputSchema = z.preprocess(coerceStructure, structureSchema) as z.ZodType<z.infer<typeof structureSchema>>;
 
 
-const textSchema = z.object({
-  seoTitle: z.string(),
-  seoDescription: z.string(),
-  blocks: z.array(
-    z.object({
-      title: z.string().optional(),
-      subtitle: z.string().optional(),
-      eyebrow: z.string().optional(),
-      body: z.string().optional(),
-      note: z.string().optional(),
-      items: z.array(z.record(z.string())).optional(),
-    }),
-  ),
-});
+function optionalString(value: unknown) {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  return undefined;
+}
+
+function coerceTextItem(item: unknown): Record<string, string> {
+  // Modelos gratuitos às vezes devolvem items como string pura.
+  if (typeof item === "string") return { title: item };
+  if (!item || typeof item !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+    const text = optionalString(value);
+    if (text !== undefined) out[key] = text;
+  }
+  return out;
+}
+
+function coerceTextBlock(block: unknown) {
+  if (!block || typeof block !== "object") return {};
+  const input = block as Record<string, unknown>;
+  return {
+    title: optionalString(input.title),
+    subtitle: optionalString(input.subtitle),
+    eyebrow: optionalString(input.eyebrow),
+    body: optionalString(input.body),
+    note: optionalString(input.note),
+    items: Array.isArray(input.items) ? input.items.map(coerceTextItem) : undefined,
+  };
+}
+
+function coerceTextPayload(raw: unknown) {
+  if (!raw || typeof raw !== "object") return raw;
+  const input = raw as Record<string, unknown>;
+  return {
+    seoTitle: optionalString(input.seoTitle) ?? "",
+    seoDescription: optionalString(input.seoDescription) ?? "",
+    blocks: Array.isArray(input.blocks) ? input.blocks.map(coerceTextBlock) : [],
+  };
+}
+
+const textSchema = z.preprocess(
+  coerceTextPayload,
+  z.object({
+    seoTitle: z.string(),
+    seoDescription: z.string(),
+    blocks: z.array(
+      z.object({
+        title: z.string().optional(),
+        subtitle: z.string().optional(),
+        eyebrow: z.string().optional(),
+        body: z.string().optional(),
+        note: z.string().optional(),
+        items: z.array(z.record(z.string())).optional(),
+      }),
+    ),
+  }),
+) as z.ZodType<{
+  seoTitle: string;
+  seoDescription: string;
+  blocks: Array<{
+    title?: string;
+    subtitle?: string;
+    eyebrow?: string;
+    body?: string;
+    note?: string;
+    items?: Array<Record<string, string>>;
+  }>;
+}>;
 
 const SYSTEM =
   "Você escreve landing pages em português do Brasil. Responda apenas JSON. Não invente depoimentos, nomes de clientes nem fotos de pessoas. Para advocacia, psicologia e clínicas, não prometa resultado, cura ou ganho de causa.";
 
 function cacheKey(stage: string, briefing: Briefing, direction: number) {
-  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 5 })).digest("hex");
+  // v9: coerce de texts (items string → objeto) para Gemini/Groq não caírem em 422
+  return createHash("sha256").update(JSON.stringify({ stage, briefing, direction, v: 9 })).digest("hex");
+}
+
+function ensureProposalDiversity(proposals: Proposal[], briefing: Briefing): Proposal[] {
+  const next = [...proposals];
+  const seen = new Set<string>();
+  for (let index = 0; index < next.length; index += 1) {
+    let signature = pageDiversitySignature(next[index]!.data);
+    if (!seen.has(signature)) {
+      seen.add(signature);
+      continue;
+    }
+    // Colisão rara (ex.: IA caiu no mesmo esqueleto): regenera direção local distinta.
+    for (const alt of [0, 1, 2, 3, 4, 5]) {
+      const data = generateDeterministic(briefing, alt);
+      signature = pageDiversitySignature(data);
+      if (seen.has(signature)) continue;
+      next[index] = {
+        ...next[index]!,
+        source: "fallback",
+        templateId: resolveProposalTemplate(briefing, alt),
+        direction: proposalDirectionLabel(briefing, alt),
+        data,
+      };
+      seen.add(signature);
+      break;
+    }
+  }
+  return next;
 }
 
 async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<{ data: T; provider: string }>) {
@@ -120,15 +205,18 @@ async function cached<T>(key: string, schema: z.ZodType<T>, load: () => Promise<
   return { ...fresh, cached: false };
 }
 
-function applyStructure(structure: z.infer<typeof structureSchema>, briefing: Briefing) {
-  const templateId = isPageTemplateId(structure.templateId)
-    ? structure.templateId
-    : resolveProposalTemplate(briefing, 0);
+function applyStructure(
+  structure: z.infer<typeof structureSchema>,
+  briefing: Briefing,
+  direction: number,
+) {
+  // Anatomia vem do trio do segmento (ou modelo preferido na dir 0) — a IA não troca o esqueleto.
+  const templateId = resolveProposalTemplate(briefing, direction);
   const archetype = ARCHETYPES[briefing.segment] ?? ARCHETYPES.local;
   const palette = archetype.palettes[structure.paletteIndex % archetype.palettes.length];
   const next = generateDeterministic(
     { ...briefing, templateId, personality: structure.personality },
-    0,
+    direction,
   );
   next.root.props.theme = {
     ...next.root.props.theme,
@@ -208,6 +296,7 @@ export type Proposal = {
   label: string;
   direction: string;
   source: "ai" | "fallback";
+  templateId: string;
   data: PageDocument;
 };
 
@@ -228,33 +317,39 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
   const fallback = generateDeterministic(briefing, direction);
   const label = `Proposta ${direction + 1}`;
   const directionLabel = proposalDirectionLabel(briefing, direction);
+  const templateId = resolveProposalTemplate(briefing, direction);
 
   if (state.quotaExhausted || Date.now() - state.started > state.budgetMs) {
     if (!state.warning && Date.now() - state.started > state.budgetMs) {
       state.warning = "A geração por IA passou do tempo limite. As propostas restantes usam o gerador local.";
     }
-    return { label, direction: directionLabel, source: "fallback", data: fallback };
+    return { label, direction: directionLabel, source: "fallback", templateId, data: fallback };
   }
 
   try {
+    const lockedTemplate = templateId;
     const structure = await cached(cacheKey("structure", briefing, direction), structureSchema, () =>
       generateJSON(
         [
           `Briefing: ${JSON.stringify(briefing)}.`,
           `Direção criativa obrigatória: ${directionLabel}.`,
-          "Responda em três camadas, sem inventar blocos nem HTML.",
-          `Anatomia: templateId exatamente um de [${PAGE_TEMPLATE_IDS.join(", ")}].`,
-          `Vibe: personality um de [${PERSONALITIES.join(", ")}]; paletteIndex inteiro 0-8; entrance "none", "curtain" ou "wipe"; heroVariant um de [${VARIANTS.Hero.join(", ")}].`,
-          "O modelo escolhido já define a ordem das seções. Não devolva lista de blocks.",
+          "Responda em JSON, sem inventar blocos nem HTML.",
+          `Anatomia fixa: templateId deve ser exatamente "${lockedTemplate}" (já escolhido para esta proposta).`,
+          `Vibe: personality um de [${PERSONALITIES.join(", ")}]; paletteIndex inteiro 0-8; entrance "none", "curtain" ou "wipe"; heroVariant um de [${VARIANTS.Hero.join(", ")}] — prefira variantes tipográficas (banner, split, editorial, light, asymmetric) se não houver foto.`,
+          "O modelo já define a ordem das seções. Não devolva lista de blocks.",
         ].join(" "),
         structureInputSchema,
         SYSTEM,
       ),
     );
-    let document = applyStructure(structure.data, briefing);
+    let document = applyStructure(
+      { ...structure.data, templateId: lockedTemplate },
+      briefing,
+      direction,
+    );
     const texts = await cached(cacheKey("texts", briefing, direction), textSchema, () =>
       generateJSON(
-        `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note/items opcionais.`,
+        `Escreva textos curtos para esta página de ${briefing.clientName} (${briefing.segment}). Público: ${briefing.audience}. Tom: ${briefing.tone}. Diferenciais: ${briefing.differentials}. Serviços: ${briefing.services}. Blocos: ${document.content.map((block) => block.type).join(", ")}. Sem depoimentos inventados. JSON: seoTitle, seoDescription, blocks[] com title/subtitle/eyebrow/body/note e items como objetos {title, description} (nunca string solta).`,
         textSchema,
         SYSTEM,
       ),
@@ -265,7 +360,7 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
     );
     document = applyMotion(document, motionPresets);
     document = enforceCompliance(pageDataSchema.parse(document), briefing.segment);
-    return { label, direction: directionLabel, source: "ai", data: document };
+    return { label, direction: directionLabel, source: "ai", templateId, data: document };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (isQuotaError(error)) {
@@ -278,7 +373,7 @@ async function generateOneProposal(briefing: Briefing, direction: number, state:
     } else if (!state.warning) {
       state.warning = "A IA falhou em pelo menos uma proposta; essas saíram do gerador local.";
     }
-    return { label, direction: directionLabel, source: "fallback", data: fallback };
+    return { label, direction: directionLabel, source: "fallback", templateId, data: fallback };
   }
 }
 
@@ -356,19 +451,37 @@ export async function generateLockedTemplate(briefing: Briefing): Promise<{
   }
 }
 
+function logGenerationTelemetry(
+  briefing: Briefing,
+  proposals: Proposal[],
+  warning?: string,
+) {
+  console.info(
+    "[generateProposals]",
+    JSON.stringify({
+      segment: briefing.segment,
+      goal: briefing.goal,
+      sources: proposals.map((item) => item.source),
+      templates: proposals.map((item) => item.templateId),
+      warning: warning || null,
+    }),
+  );
+}
+
 export async function generateProposals(briefing: Briefing) {
   const fallbacks: Proposal[] = [0, 1, 2].map((index) => ({
     label: `Proposta ${index + 1}`,
     direction: proposalDirectionLabel(briefing, index),
     source: "fallback" as const,
+    templateId: resolveProposalTemplate(briefing, index),
     data: generateDeterministic(briefing, index),
   }));
 
   if (providerOrder().length === 0) {
-    return {
-      proposals: fallbacks,
-      warning: "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.",
-    };
+    const proposals = ensureProposalDiversity(fallbacks, briefing);
+    const warning = "Nenhuma chave de IA configurada. As propostas saem do gerador local de arquétipos.";
+    logGenerationTelemetry(briefing, proposals, warning);
+    return { proposals, warning };
   }
 
   const state: GenerateState = {
@@ -381,19 +494,20 @@ export async function generateProposals(briefing: Briefing) {
   // 1 proposta via IA (rápida) + 2 arquétipos locais — evita 6 chamadas e timeout 499.
   try {
     const primary = await withTimeout(generateOneProposal(briefing, 0, state), 20_000);
-    const proposals = [primary, fallbacks[1], fallbacks[2]];
+    const proposals = ensureProposalDiversity([primary, fallbacks[1]!, fallbacks[2]!], briefing);
     if (state.warning && primary.source === "ai" && /cota gratuita acabou/i.test(state.warning)) {
       state.warning = "Limite da cota gratuita atingido; parte das propostas usou o gerador local.";
     }
     if (primary.source === "fallback" && !state.warning) {
       state.warning = "A IA demorou ou falhou; as propostas usam o gerador local (ainda editáveis).";
     }
+    logGenerationTelemetry(briefing, proposals, state.warning);
     return { proposals, warning: state.warning };
   } catch {
-    return {
-      proposals: fallbacks,
-      warning: "A geração por IA passou do tempo limite. As propostas usam o gerador local.",
-    };
+    const proposals = ensureProposalDiversity(fallbacks, briefing);
+    const warning = "A geração por IA passou do tempo limite. As propostas usam o gerador local.";
+    logGenerationTelemetry(briefing, proposals, warning);
+    return { proposals, warning };
   }
 }
 

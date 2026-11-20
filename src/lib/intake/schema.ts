@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { mapsEmbedFromAddress } from "@/lib/map-embed";
 import { ensureThemeContrast } from "@/lib/theme-contrast";
-import { PAGE_TEMPLATE_IDS } from "@/puck/page-templates-ids";
+import { SEGMENT_TRIOS } from "@/lib/ai/segment-roster";
+import { getTemplateStyle, isPageTemplateId } from "@/lib/ai/template-styles";
+import { PAGE_TEMPLATE_IDS, type PageTemplateId } from "@/puck/page-templates-ids";
 import {
   BG_ARTS,
   BODY_FONTS,
@@ -13,6 +15,65 @@ import {
   type PageDocument,
   type Theme,
 } from "@/puck/schema";
+
+/** Defaults antigos do formulário — se o payload ainda for isso, não sobrescrevem o tema do modelo. */
+export const INTAKE_FACTORY_LOOK = {
+  personality: "editorial" as const,
+  primaryColor: "#8f3d2b",
+  backgroundColor: "#f6f1ea",
+  fontDisplay: "Fraunces" as const,
+  fontBody: "Outfit" as const,
+  bgArt: "none" as const,
+};
+
+type IntakeLook = {
+  personality: (typeof PERSONALITIES)[number];
+  primaryColor: string;
+  backgroundColor: string;
+  fontDisplay: (typeof DISPLAY_FONTS)[number];
+  fontBody: (typeof BODY_FONTS)[number];
+  bgArt: (typeof BG_ARTS)[number];
+};
+
+export function defaultTemplateForSegment(segment: Briefing["segment"]): PageTemplateId {
+  const trio = SEGMENT_TRIOS[segment] ?? SEGMENT_TRIOS.local;
+  return trio[0]!;
+}
+
+export function intakeVisualFromTemplate(templateId: PageTemplateId): IntakeLook {
+  const style = getTemplateStyle(templateId);
+  const display = style.fonts?.display;
+  const body = style.fonts?.body;
+  const bgArt = style.bgArt;
+  return {
+    personality: style.personality,
+    primaryColor: style.colors.primary,
+    backgroundColor: style.colors.background,
+    fontDisplay:
+      display && (DISPLAY_FONTS as readonly string[]).includes(display)
+        ? (display as (typeof DISPLAY_FONTS)[number])
+        : INTAKE_FACTORY_LOOK.fontDisplay,
+    fontBody:
+      body && (BODY_FONTS as readonly string[]).includes(body)
+        ? (body as (typeof BODY_FONTS)[number])
+        : INTAKE_FACTORY_LOOK.fontBody,
+    bgArt:
+      bgArt && (BG_ARTS as readonly string[]).includes(bgArt)
+        ? (bgArt as (typeof BG_ARTS)[number])
+        : "none",
+  };
+}
+
+export function isFactoryLook(payload: IntakeLook) {
+  return (
+    payload.personality === INTAKE_FACTORY_LOOK.personality &&
+    payload.primaryColor.toLowerCase() === INTAKE_FACTORY_LOOK.primaryColor &&
+    payload.backgroundColor.toLowerCase() === INTAKE_FACTORY_LOOK.backgroundColor &&
+    payload.fontDisplay === INTAKE_FACTORY_LOOK.fontDisplay &&
+    payload.fontBody === INTAKE_FACTORY_LOOK.fontBody &&
+    payload.bgArt === INTAKE_FACTORY_LOOK.bgArt
+  );
+}
 
 export const intakeSchema = z.object({
   // 1 Negócio
@@ -28,19 +89,19 @@ export const intakeSchema = z.object({
   email: z.string().max(120).default(""),
   address: z.string().max(300).default(""),
   // 3 Visual
-  personality: z.enum(PERSONALITIES).default("editorial"),
-  primaryColor: z.string().max(40).default("#8f3d2b"),
-  backgroundColor: z.string().max(40).default("#f6f1ea"),
-  fontDisplay: z.enum(DISPLAY_FONTS).default("Fraunces"),
-  fontBody: z.enum(BODY_FONTS).default("Outfit"),
-  bgArt: z.enum(BG_ARTS).default("none"),
+  personality: z.enum(PERSONALITIES).default(INTAKE_FACTORY_LOOK.personality),
+  primaryColor: z.string().max(40).default(INTAKE_FACTORY_LOOK.primaryColor),
+  backgroundColor: z.string().max(40).default(INTAKE_FACTORY_LOOK.backgroundColor),
+  fontDisplay: z.enum(DISPLAY_FONTS).default(INTAKE_FACTORY_LOOK.fontDisplay),
+  fontBody: z.enum(BODY_FONTS).default(INTAKE_FACTORY_LOOK.fontBody),
+  bgArt: z.enum(BG_ARTS).default(INTAKE_FACTORY_LOOK.bgArt),
   // 4 Textos
   tone: z.string().max(200).default(""),
   differentials: z.string().max(600).default(""),
   references: z.string().max(400).default(""),
   headline: z.string().max(160).default(""),
   tagline: z.string().max(240).default(""),
-  // 5 Modelo
+  // 5 Modelo — fallback legado; emptyIntake / create usam o trio do segmento
   templateId: z.enum(PAGE_TEMPLATE_IDS).default("classic"),
 });
 
@@ -52,10 +113,17 @@ export function parseIntakePayload(raw: unknown): IntakePayload | null {
 }
 
 export function emptyIntake(partial?: Partial<IntakePayload>): IntakePayload {
+  const segment = partial?.segment ?? "local";
+  const templateId =
+    partial?.templateId && isPageTemplateId(partial.templateId)
+      ? partial.templateId
+      : defaultTemplateForSegment(segment);
+  const visual = intakeVisualFromTemplate(templateId);
+
   // Draft-friendly: do not run min-length validators until submit.
   return {
     clientName: partial?.clientName ?? "",
-    segment: partial?.segment ?? "local",
+    segment,
     audience: partial?.audience ?? "",
     goal: partial?.goal ?? "captar",
     services: partial?.services ?? "",
@@ -64,18 +132,18 @@ export function emptyIntake(partial?: Partial<IntakePayload>): IntakePayload {
     instagram: partial?.instagram ?? "",
     email: partial?.email ?? "",
     address: partial?.address ?? "",
-    personality: partial?.personality ?? "editorial",
-    primaryColor: partial?.primaryColor ?? "#8f3d2b",
-    backgroundColor: partial?.backgroundColor ?? "#f6f1ea",
-    fontDisplay: partial?.fontDisplay ?? "Fraunces",
-    fontBody: partial?.fontBody ?? "Outfit",
-    bgArt: partial?.bgArt ?? "none",
+    personality: partial?.personality ?? visual.personality,
+    primaryColor: partial?.primaryColor ?? visual.primaryColor,
+    backgroundColor: partial?.backgroundColor ?? visual.backgroundColor,
+    fontDisplay: partial?.fontDisplay ?? visual.fontDisplay,
+    fontBody: partial?.fontBody ?? visual.fontBody,
+    bgArt: partial?.bgArt ?? visual.bgArt,
     tone: partial?.tone ?? "",
     differentials: partial?.differentials ?? "",
     references: partial?.references ?? "",
     headline: partial?.headline ?? "",
     tagline: partial?.tagline ?? "",
-    templateId: partial?.templateId ?? "classic",
+    templateId,
   };
 }
 
@@ -102,31 +170,40 @@ export function intakeToBriefing(payload: IntakePayload, slug = ""): Briefing {
 }
 
 export function applyIntakeToDocument(document: PageDocument, payload: IntakePayload): PageDocument {
+  // Look "de fábrica" legado = manter tipografia/cores/atmosfera do modelo já montado.
+  const preserveTemplateTheme = isFactoryLook(payload);
   const baseColors = { ...document.root.props.theme.colors };
-  if (payload.primaryColor?.startsWith("#")) {
-    baseColors.primary = payload.primaryColor;
-    baseColors.accent = payload.primaryColor;
-  }
-  // Só sobrescreve o fundo se o usuário escolheu uma cor; depois harmonia de contraste.
-  if (payload.backgroundColor?.startsWith("#")) {
-    baseColors.background = payload.backgroundColor;
+
+  if (!preserveTemplateTheme) {
+    if (payload.primaryColor?.startsWith("#")) {
+      baseColors.primary = payload.primaryColor;
+      baseColors.accent = payload.primaryColor;
+    }
+    if (payload.backgroundColor?.startsWith("#")) {
+      baseColors.background = payload.backgroundColor;
+    }
   }
 
-  const theme: Theme = {
-    ...document.root.props.theme,
-    personality: payload.personality,
-    colors: ensureThemeContrast(baseColors),
-    fonts: {
-      display: payload.fontDisplay,
-      body: payload.fontBody,
-    },
-    bgArt: payload.bgArt,
-  };
+  const theme: Theme = preserveTemplateTheme
+    ? {
+        ...document.root.props.theme,
+        colors: ensureThemeContrast(document.root.props.theme.colors),
+      }
+    : {
+        ...document.root.props.theme,
+        personality: payload.personality,
+        colors: ensureThemeContrast(baseColors),
+        fonts: {
+          display: payload.fontDisplay,
+          body: payload.fontBody,
+        },
+        bgArt: payload.bgArt,
+      };
 
   const whatsappPhone = payload.whatsapp || payload.phone || document.root.props.whatsapp.phone;
   const address = payload.address.trim();
 
-  let content = document.content.map((block) => {
+  const content = document.content.map((block) => {
     if (block.type === "Hero" && (payload.headline || payload.tagline)) {
       return {
         ...block,
@@ -143,9 +220,10 @@ export function applyIntakeToDocument(document: PageDocument, payload: IntakePay
         props: {
           ...block.props,
           address,
-          embedUrl: block.props.embedUrl?.includes("output=embed") || block.props.embedUrl?.includes("/maps/embed")
-            ? block.props.embedUrl
-            : mapsEmbedFromAddress(address),
+          embedUrl:
+            block.props.embedUrl?.includes("output=embed") || block.props.embedUrl?.includes("/maps/embed")
+              ? block.props.embedUrl
+              : mapsEmbedFromAddress(address),
           note: block.props.note?.includes("substituir") ? "Venha nos visitar." : block.props.note,
         },
       };

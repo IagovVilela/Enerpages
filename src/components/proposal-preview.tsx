@@ -24,7 +24,13 @@ export function ProposalPreviewModal({
   onEdit,
 }: {
   open: boolean;
-  proposal: { label: string; direction: string; data: PageDocument } | null;
+  proposal: {
+    label: string;
+    direction: string;
+    source?: "ai" | "fallback";
+    templateId?: string;
+    data: PageDocument;
+  } | null;
   busy?: boolean;
   error?: string;
   onClose: () => void;
@@ -34,6 +40,8 @@ export function ProposalPreviewModal({
 
   if (!open || !proposal) return null;
 
+  const theme = proposal.data.root.props.theme;
+
   return (
     <div className="fixed inset-0 z-[90] flex flex-col bg-[var(--studio-bg)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--studio-line)] px-4 py-3">
@@ -41,6 +49,20 @@ export function ProposalPreviewModal({
           <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">Pré-visualização</p>
           <h2 className="text-lg font-semibold tracking-tight">{proposal.label}</h2>
           <p className="text-sm text-neutral-600">{proposal.direction}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-neutral-600">
+            {proposal.source ? (
+              <span className="border px-2 py-0.5">{proposal.source === "ai" ? "IA" : "Local"}</span>
+            ) : null}
+            {proposal.templateId ? <span className="border px-2 py-0.5">{proposal.templateId}</span> : null}
+            <span className="border px-2 py-0.5">
+              {theme.fonts.display}/{theme.fonts.body}
+            </span>
+            <span className="inline-flex items-center gap-1 border px-2 py-0.5">
+              <span className="inline-block h-2.5 w-2.5" style={{ background: theme.colors.primary }} />
+              <span className="inline-block h-2.5 w-2.5" style={{ background: theme.colors.background }} />
+              {theme.personality}
+            </span>
+          </div>
           {error ? <p className="mt-1 max-w-xl text-sm text-[var(--studio-accent)]">{error}</p> : null}
           {busy ? <p className="mt-1 text-sm text-neutral-600">Criando a página e abrindo o editor…</p> : null}
         </div>

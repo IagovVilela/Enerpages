@@ -26,7 +26,7 @@
     "@puckeditor/core": "^0.23.0",
     "hash-wasm": "^4.12.0",
     "motion": "^14.2.0",
-    "next": "16.4.1",
+    "next": "^16.4.6",
     "next-auth": "^5.0.0-beta.32",
     "otpauth": "^9.5.2",
     "prisma": "^6.19.3",

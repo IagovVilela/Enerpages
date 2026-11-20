@@ -91,4 +91,17 @@ describe("generateDeterministic", () => {
       expect(hero.props.subtitle.toLowerCase()).not.toMatch(/garantid|100\s*%|ganho/);
     }
   });
+
+  it("troca herói cinematic/immersive por variante tipográfica sem foto", () => {
+    const doc = generateDeterministic(
+      { ...base, segment: "barbearia", templateId: "navalha", clientName: "Dom Navalha" },
+      0,
+    );
+    const hero = doc.content.find((block) => block.type === "Hero");
+    expect(hero?.type).toBe("Hero");
+    if (hero?.type === "Hero") {
+      expect(["cinematic", "immersive", "brand"]).not.toContain(hero.props.variant);
+      expect(hero.props.imageMode).toBe("logo");
+    }
+  });
 });

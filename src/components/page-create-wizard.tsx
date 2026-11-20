@@ -76,13 +76,23 @@ export function PageCreateWizard() {
           </h1>
           <p className="mt-2 max-w-xl text-sm text-neutral-600">
             {step === 1
-              ? "O modelo define o layout. A IA escreve os textos em cima dele, sem trocar as seções."
+              ? "O modelo define o layout. A IA escreve os textos em cima dele, sem trocar as seções. Quer 3 layouts do mesmo segmento? Use o briefing."
               : "Conte o que o cliente oferece. A IA reescreve a página e o editor abre em seguida."}
           </p>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--studio-accent)]">
-          Passo {step} de 2
-        </p>
+        <div className="grid gap-2 justify-items-end">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--studio-accent)]">
+            Passo {step} de 2
+          </p>
+          {step === 1 ? (
+            <a
+              href="/briefing"
+              className="text-xs font-medium text-neutral-600 underline-offset-2 hover:underline"
+            >
+              Gerar 3 propostas do segmento →
+            </a>
+          ) : null}
+        </div>
       </div>
 
       {step === 1 ? (
